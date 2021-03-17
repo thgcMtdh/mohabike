@@ -5,6 +5,7 @@
   "pulsemode":7,
   "fc":199.5,
   "frand":0.0,
+  "soc":80,
   "Vdc":38.4,
   "Iac":2.5,
   "Tm":15,
