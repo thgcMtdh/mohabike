@@ -1,4 +1,4 @@
-import time, json
+import time, json, glob, os
 import responder
 
 # instead of serial com, read text file
@@ -7,9 +7,15 @@ rxbuf0 = open("rxdata.json", "r").read().replace("\n","")
 # flags and variables
 flagSerial = False  # シリアル通信の実行有無 (Trueのときマイコンからinfo受信)
 flagReset = False   # Falseにするとマイコンをリセット
-rxbuf = ""   # マイコンから受け取った文字列
+rxbuf = None   # マイコンから受け取った文字列
 speed = 0.0  # 走行速度[km/h](メーターに表示)
 Iac = 0.0    # 主電動機電流[A](メーターに表示)
+
+# 車両一覧を取得
+carlist = []
+for p in glob.glob("cars/*.txt"):
+    carlist.append(os.path.split(p)[1].replace(".txt", ""))
+print(carlist)
 
 # web server start
 api = responder.API()
@@ -39,6 +45,10 @@ def hello_html(req,resp):
 @api.route("/info")
 def get_info(req,resp):
     resp.text = rxbuf
+
+@api.route("/carlist")
+def get_carlist(req,resp):
+    resp.media = carlist
 
 @api.route("/command")
 async def post_command(req,resp):
