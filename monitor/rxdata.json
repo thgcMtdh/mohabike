@@ -1,4 +1,5 @@
 {
+  "speed":6.0,
   "fs":28.5,
   "Vs":0.64,
   "pulsemode":7,
@@ -9,6 +10,6 @@
   "Tm":15,
   "Th":40,
   "power":true,
-  "pedal":false,
-  "assist":false
+  "pedal":true,
+  "trouble":false
 }
