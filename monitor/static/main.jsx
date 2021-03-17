@@ -25,6 +25,7 @@ function judgeCurrentState(info) {
 class App extends React.Component {
     constructor(props) {
         super(props);
+        this.handleCarChange = this.handleCarChange.bind(this);
         this.state = {
             info: null,  // インバータの動作状態(マイコン→HTML)
             command: initialCommand,  // 指令(HTML→マイコン)
@@ -70,8 +71,12 @@ class App extends React.Component {
     }
 
     // 車両を選択ボタンが押されたときの処理
-    handleCarChange(value) {
-        console.log(value);
+    handleCarChange() {
+       if (this.state.maincontents == '主回路動作状況') {
+           this.setState({maincontents: '車両選択'});
+       } else {
+           this.setState({maincontents: '主回路動作状況'});
+       }
     }
 
     componentDidMount() {
@@ -152,7 +157,7 @@ class MonitorArea extends React.Component {
     render() {
         return (
             <div id="monitorarea" className="bg_black">
-                <Header carname={this.props.carname} onCarChange={this.props.handleCarChange}/>
+                <Header carname={this.props.carname} maincontents={this.props.maincontents} onCarChange={this.props.handleCarChange}/>
                 <Title value={this.props.maincontents}/>
                 {this.renderMainContents()}
                 <Footer/>
@@ -162,15 +167,20 @@ class MonitorArea extends React.Component {
 }
 
 class Header extends React.Component {
-    handleChange(e) {
+    constructor(props) {
+        super(props);
+        this.handleClick = this.handleClick.bind(this);
+    }
+    handleClick(e) {
         this.props.onCarChange(e.target.value);
     }
     render() {
         const next_sta = "本郷三丁目";
         const kilotei = "4.3km";
+        var innertext = (this.props.maincontents == '主回路動作状況')? '車両選択' : '動作状況';
         return (
             <div id="header" className="bg_medium">
-                <div id="carselectbutton" className="btn" onClick={this.handleChange}>車両選択</div>
+                <button id="carselectbutton" onClick={this.handleClick}>{innertext}</button>
                 <div id="carname">{this.props.carname}</div>
                 <InfoElement title={"次駅"} value={next_sta}/>
                 <InfoElement title={"キロ程"} value={kilotei}/>
@@ -219,6 +229,7 @@ class Title extends React.Component {
 class OperationStatus extends React.Component {
     render() {
         if (!this.props.info) {
+            var soc = '--';
             var Vdc = '--';
             var fs = '--';
             var Vs = '--';
@@ -228,6 +239,7 @@ class OperationStatus extends React.Component {
             var Pm = '--';
             var pulsemode = '--';
         } else {
+            var soc = Math.round(this.props.info['soc']);
             var Vdc = Math.round(this.props.info['Vdc']*10)/10;
             var fs = Math.round(this.props.info['fs']*10)/10;
             var Vs = Math.round(this.props.info['Vs']*100);
@@ -248,6 +260,7 @@ class OperationStatus extends React.Component {
             <div id="operationstatus" className="bg_medium">
                 <div id="status_dc">
                     <span className="content_title">DC</span>
+                    <InfoElement title={'バッテリ残量'} value={soc+' %'}/>
                     <InfoElement title={'入力電圧'} value={Vdc+' V'}/>
                 </div>
                 <div id="status_ac">
