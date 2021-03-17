@@ -1,0 +1,14 @@
+{
+  "fs":28.5,
+  "Vs":0.64,
+  "pulsemode":7,
+  "fc":19.95,
+  "frand":0.0,
+  "Vdc":38.4,
+  "Iac":2.5,
+  "Tm":15,
+  "Th":40,
+  "power":true,
+  "pedal":false,
+  "assist":false
+}
