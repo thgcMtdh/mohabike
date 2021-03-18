@@ -17,6 +17,17 @@
     vertical-align: middle;
 }
 
+/*ボタンの有効/無効およびON時*/
+button {
+
+}
+button:disabled {
+
+}
+.btn_on {
+
+}
+
 #indicatorarea {
     height: 100%;
     width: 21.875%;        /*LED表示器*/
@@ -36,12 +47,14 @@
 #monitorarea {
     height: 100%;
     width: 75%;
-    display: grid;  /*モニタ内部の要素はグリッドレイアウトで配置する*/
-    grid-template-rows: 15fr 5fr 70fr 10fr;
+    display: grid;  /*モニタ内の要素はグリッドレイアウトで配置*/
+    grid-template-rows: 15fr 6fr 69fr 10fr;
 }
+
 #header {
     grid-row: 1;
-    display: grid;  /*Header内の要素をグリッドレイアウトで配置*/
+    height: 100%;
+    display: grid;  /*Header内の要素はグリッドレイアウトで配置*/
     grid-template-columns: 35fr 45fr 20fr;
 }
 #header #carname {
@@ -69,15 +82,17 @@
 
 #title {
     grid-row: 2;
+    height: 100%;
     text-align: center;  /*中央揃え*/
     letter-spacing: 0.3em;  /*字間を広げる*/
 }
 
 #operationstatus {
     grid-row: 3;
+    height: 100%;
     display: grid;  /*グリッドレイアウトの親要素*/
-    grid-template-rows: 35% 35%;
-    grid-template-columns: 50% 50%;
+    grid-template-rows: 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
 }
 #operationstatus #status_dc{
     grid-row: 1/2;
@@ -94,10 +109,57 @@
 
 #selectcars {
     grid-row: 3;
+    height: 100%;
+    display: grid;  /*selectcars内の要素はグリッドレイアウトで配置*/
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 4fr 4fr 4fr 1fr;
+}
+#selectcars #car_prev {
+    grid-column: 1;
+    grid-row: 2;
+}
+#selectcars #car_next {
+    grid-column: 5;
+    grid-row: 2;
+}
+#selectcars .carcard_0 {
+    grid-column: 2;
+    grid-row: 1/4;
+}
+#selectcars .carcard_1 {
+    grid-column: 3;
+    grid-row: 1/4;
+}
+#selectcars .carcard_2 {
+    grid-column: 4;
+    grid-row: 1/4;
+}
+#selectcars .carcard {
+    height: 100%;
+    display: grid;  /*carcard内の要素はグリッドレイアウトで配置*/
+    grid-template-rows: 5fr 1fr 4fr 1fr;  /*写真-名前-説明-ボタン*/
+}
+#selectcars .carcard .carimg {
+    grid-row: 1;
+    width: 100%;
+}
+#selectcars .carcard .carname {
+    grid-row: 2;
+    width: 100%;
+}
+#selectcars .carcard .cardescription {
+    grid-row: 3;
+    width: 100%;
+}
+#selectcars .carcard .carpicker {
+    grid-row: 4;
+    height: 100%;
+    width: 100%;
 }
 
 #footer {
     grid-row: 4;
+    height: 100%;
     display: grid;  /*6分割のグリッドレイアウトを作成*/
     grid-template-columns: repeat(8, 1fr);
 }

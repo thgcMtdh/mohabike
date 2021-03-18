@@ -1,6 +1,19 @@
 const lampTextList = {power:'インバータ電源', pedal:'ペダル', assist:'アシスト', regen:'回生', alleb:'全電気ブレーキ', battLB:'バッテリ低電圧', trouble:'三相異常', comfailed:'通信異常'};
 const initialCommand = {reset:true, serial:true};
-const carlist = ['東武100系', 'ダミー'];
+const cars = {
+    "東武100系":{
+        "desc":"東武鉄道が1990年から営業運転を開始した特急型車両。うんたらかんたら……"
+    },
+    "ダミー":{
+        "desc":"こんな風に車両の説明がある"
+    },
+    "ダミー copy":{
+        "desc":"こんな風に車両の説明がある"
+    },
+    "ダミー copy 2":{
+        "desc":"こんな風に車両の説明がある"
+    }}
+const carlist = Object.keys(cars);  // 車両の名前一覧
 const interval = 1000;  // 情報を取得する時間間隔[ms]
 const PI = 3.141592653589;
 const pp = 16;          // 極対数
@@ -26,11 +39,12 @@ class App extends React.Component {
     constructor(props) {
         super(props);
         this.handleButtonClick = this.handleButtonClick.bind(this);
+        this.handleCarChange = this.handleCarChange.bind(this);
         this.state = {
             info: null,  // インバータの動作状態(マイコン→HTML)
             command: initialCommand,  // 指令(HTML→マイコン)
             comfailed: false,  // 通信に失敗した際trueになるフラグ
-            carindex: 0,    // 現在選択している車両のid
+            carname: carlist[0],    // 現在選択している車両の名前
             maincontents: '主回路動作状況'  // モニタに表示しているコンテンツ
         }
     }
@@ -82,6 +96,11 @@ class App extends React.Component {
         }
     }
 
+    // 車両を変更したときの処理
+    handleCarChange(name) {
+        this.state.carname = name;
+    }
+
     componentDidMount() {
         // 指令を送信し、マイコンを立ち上げ
         this.postCommand();
@@ -99,11 +118,16 @@ class App extends React.Component {
     }
 
     render() {
-        const carname = carlist[this.state.carindex];
         return (
             <div id="app">
-                <IndicatorArea info={this.state.info} comfailed={this.state.comfailed}/>
-                <MonitorArea info={this.state.info} comfailed={this.state.comfailed} carname={carname} maincontents={this.state.maincontents} handleButtonClick={this.handleButtonClick}/>
+                <IndicatorArea info={this.state.info}
+                    comfailed={this.state.comfailed}/>
+                <MonitorArea info={this.state.info}
+                    comfailed={this.state.comfailed}
+                    carname={this.state.carname}
+                    maincontents={this.state.maincontents}
+                    handleButtonClick={this.handleButtonClick}
+                    onCarChange={this.handleCarChange}/>
             </div>
         );
     }
@@ -152,7 +176,7 @@ class MonitorArea extends React.Component {
         if (this.props.maincontents == '主回路動作状況') {
             return (<OperationStatus info={this.props.info} comfailed={this.props.comfailed}/>)
         } else if (this.props.maincontents == '車両選択') {
-            return (<SelectCars carname={this.props.carname}/>)
+            return (<SelectCars onCarChange={this.props.onCarChange}/>)
         } else {
             return null
         }
@@ -165,7 +189,7 @@ class MonitorArea extends React.Component {
                     <span>◆{this.props.maincontents}◆</span>
                 </div>
                 {this.renderMainContents()}
-                <Footer onButtonClick={this.props.handleButtonClick}/>
+                <Footer maincontents={this.props.maincontents} onButtonClick={this.props.handleButtonClick}/>
             </div>
         )
     }
@@ -280,9 +304,68 @@ class OperationStatus extends React.Component {
 }
 
 class SelectCars extends React.Component {
+    constructor(props) {
+        super(props);
+        this.handlePrev = this.handlePrev.bind(this);
+        this.handleNext = this.handleNext.bind(this);
+        this.state = {pageIndex: 0};  // 何ページ目を表示しているか
+    }
+    handlePrev() {  // ひとつ前のページを表示
+        this.setState({pageIndex: this.state.pageIndex-1});
+    }
+    handleNext() {  // ひとつ後のページを表示
+        this.setState({pageIndex: this.state.pageIndex+1});
+    }
+    renderCarCard(carname, pos) {
+        if (carname) {
+            return (<CarCard name={carname} pos={pos} onCarChange={this.props.onCarChange}/>)
+        } else {
+            return null
+        }
+    }
+    render() {
+        var pageIndex = this.state.pageIndex;
+        var disable_prev = (pageIndex == 0);  // 最初のページに居る場合、戻るボタンを無効化
+        var disable_next = (pageIndex == Math.floor((carlist.length-1)/3));  // 最後のページに居る場合、進むボタンを無効化
+        var car0 = (carlist[pageIndex*3])? carlist[pageIndex*3] : null;      // 1枚目の車両名
+        var car1 = (carlist[pageIndex*3+1])? carlist[pageIndex*3+1] : null;  // 2枚目〃
+        var car2 = (carlist[pageIndex*3+2])? carlist[pageIndex*3+2] : null;  // 3枚目〃
+        return (
+            <div id="selectcars" className="bg_medium">
+                <button id="car_prev" onClick={this.handlePrev} disabled={disable_prev}>◀</button>
+                {this.renderCarCard(car0, 0)}
+                {this.renderCarCard(car1, 1)}
+                {this.renderCarCard(car2, 2)}
+                <button id="car_next" onClick={this.handleNext} disabled={disable_next}>▶</button>
+            </div>
+        )
+    }
+}
+class CarCard extends React.Component {
+    render() {
+        const imgurl = '/static/cars/' + this.props.name + '.jpg';
+        const description = cars[this.props.name].desc;
+        return (
+            <div className={"carcard carcard_"+this.props.pos+" bg_light"}>
+                <img className="carimg" src={imgurl}></img>
+                <div className="carname valign"><span>{this.props.name}</span></div>
+                <div className="cardescription"><span>{description}</span></div>
+                <CarPicker name={this.props.name} onCarChange={this.props.onCarChange}/>
+            </div>
+        )
+    }
+}
+class CarPicker extends React.Component {
+    constructor(props) {
+        super(props);
+        this.handleClick = this.handleClick.bind(this);
+    }
+    handleClick() {
+        this.props.onCarChange(this.props.name);
+    }
     render() {
         return (
-            <div id="selectcars" className="bg_medium"></div>
+            <button className="carpicker" onClick={this.handleClick}>この車両を選択</button>
         )
     }
 }
@@ -297,10 +380,12 @@ class Footer extends React.Component {
         this.props.onButtonClick(e.target.id);
     }
     render() {
+        const carselect_active = (this.props.maincontents == '車両選択')? "btn_on":"";
+        const status_active = (this.props.maincontents == '主回路動作状況')? "btn_on":"";
         return (
             <div id="footer" className="bg_light">
-               <button id="carselectbutton" onClick={this.handleClick}>車両選択</button>
-               <button id="statusbutton" onClick={this.handleClick}>動作状況</button>
+               <button id="carselectbutton" className={carselect_active} onClick={this.handleClick}>車両選択</button>
+               <button id="statusbutton" className={status_active} onClick={this.handleClick}>動作状況</button>
             </div>
         )
     }
