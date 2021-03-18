@@ -25,7 +25,7 @@ function judgeCurrentState(info) {
 class App extends React.Component {
     constructor(props) {
         super(props);
-        this.handleCarChange = this.handleCarChange.bind(this);
+        this.handleButtonClick = this.handleButtonClick.bind(this);
         this.state = {
             info: null,  // インバータの動作状態(マイコン→HTML)
             command: initialCommand,  // 指令(HTML→マイコン)
@@ -70,13 +70,16 @@ class App extends React.Component {
         )
     }
 
-    // 車両を選択ボタンが押されたときの処理
-    handleCarChange() {
-       if (this.state.maincontents == '主回路動作状況') {
-           this.setState({maincontents: '車両選択'});
-       } else {
-           this.setState({maincontents: '主回路動作状況'});
-       }
+    // フッターでボタンが押されたときの処理
+    handleButtonClick(id) {
+        switch (id) {
+            case 'carselectbutton':
+                this.setState({maincontents: '車両選択'}); break;
+            case 'statusbutton':
+                this.setState({maincontents: '主回路動作状況'}); break;
+            default:
+                break;
+        }
     }
 
     componentDidMount() {
@@ -100,7 +103,7 @@ class App extends React.Component {
         return (
             <div id="app">
                 <IndicatorArea info={this.state.info} comfailed={this.state.comfailed}/>
-                <MonitorArea info={this.state.info} comfailed={this.state.comfailed} carname={carname} maincontents={this.state.maincontents} handleCarChange={this.handleCarChange}/>
+                <MonitorArea info={this.state.info} comfailed={this.state.comfailed} carname={carname} maincontents={this.state.maincontents} handleButtonClick={this.handleButtonClick}/>
             </div>
         );
     }
@@ -149,7 +152,7 @@ class MonitorArea extends React.Component {
         if (this.props.maincontents == '主回路動作状況') {
             return (<OperationStatus info={this.props.info} comfailed={this.props.comfailed}/>)
         } else if (this.props.maincontents == '車両選択') {
-            return (<SelectCars/>)
+            return (<SelectCars carname={this.props.carname}/>)
         } else {
             return null
         }
@@ -157,32 +160,23 @@ class MonitorArea extends React.Component {
     render() {
         return (
             <div id="monitorarea" className="bg_black">
-                <Header carname={this.props.carname} maincontents={this.props.maincontents} onCarChange={this.props.handleCarChange}/>
+                <Header carname={this.props.carname}/>
                 <div id="title" className=" valign bg_title">
                     <span>◆{this.props.maincontents}◆</span>
                 </div>
                 {this.renderMainContents()}
-                <Footer/>
+                <Footer onButtonClick={this.props.handleButtonClick}/>
             </div>
         )
     }
 }
 
 class Header extends React.Component {
-    constructor(props) {
-        super(props);
-        this.handleClick = this.handleClick.bind(this);
-    }
-    handleClick(e) {
-        this.props.onCarChange(e.target.value);
-    }
     render() {
         const next_sta = "本郷三丁目";
         const kilotei = "4.3km";
-        var buttontext = (this.props.maincontents == '主回路動作状況')? '車両選択' : '動作状況';
         return (
             <div id="header" className="bg_medium">
-                <button id="carselectbutton" onClick={this.handleClick}>{buttontext}</button>
                 <div id="carname" className="valign">
                     <span>{this.props.carname}</span>
                 </div>
@@ -294,9 +288,20 @@ class SelectCars extends React.Component {
 }
 
 class Footer extends React.Component {
+    constructor(props) {
+        super(props);
+        this.handleClick = this.handleClick.bind(this);
+    }
+    // フッターのボタンがクリックされたとき、どのボタンがクリックされたかをonButtonClickに渡す
+    handleClick(e) {
+        this.props.onButtonClick(e.target.id);
+    }
     render() {
         return (
-            <div id="footer" className="bg_light"></div>
+            <div id="footer" className="bg_light">
+               <button id="carselectbutton" onClick={this.handleClick}>車両選択</button>
+               <button id="statusbutton" onClick={this.handleClick}>動作状況</button>
+            </div>
         )
     }
 }

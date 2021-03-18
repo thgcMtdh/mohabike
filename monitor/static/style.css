@@ -42,18 +42,14 @@
 #header {
     grid-row: 1;
     display: grid;  /*Header内の要素をグリッドレイアウトで配置*/
-    grid-template-columns: 10fr 25fr 45fr 20fr;
+    grid-template-columns: 35fr 45fr 20fr;
 }
-#header #carselectbutton {
+#header #carname {
     grid-column: 1;
     height: 100%;
 }
-#header #carname {
-    grid-column: 2;
-    height: 100%;
-}
 #header #headerinfos {
-    grid-column: 3;
+    grid-column: 2;
     height: 100%;
 }
 #headerinfos .infoelement {
@@ -61,7 +57,7 @@
     width: 100%;
 }
 #header #clock {
-    grid-column: 4;
+    grid-column: 3;
     height: 100%;
 }
 #header #clock .clocktxt {
@@ -100,10 +96,20 @@
     grid-row: 3;
 }
 
-#Footer {
+#footer {
     grid-row: 4;
+    display: grid;  /*6分割のグリッドレイアウトを作成*/
+    grid-template-columns: repeat(8, 1fr);
 }
-
+#footer button {  /*ボタン共通の書式*/
+    height: 100%;
+}
+#footer #carselectbutton {
+    grid-column: 1;
+}
+#footer #statusbutton {
+    grid-column: 2;
+}
 
 
 .infoelement {
