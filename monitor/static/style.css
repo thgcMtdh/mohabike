@@ -1,0 +1,110 @@
+#route {
+    height: 450px;
+    width: 800px;
+}
+#app {
+    height: 100%;
+    width: 100%;
+    display: flex;  /*appの子要素を横並びにする*/
+}
+
+/*valignをもつdivについて、子要素のspanを上下中央揃えにする*/
+.valign {
+    display: table;
+}
+.valign span {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+#indicatorarea {
+    height: 100%;
+    width: 21.875%;        /*LED表示器*/
+    padding-right: 3.125%; /*メインモニタとの間の余白*/
+}
+#monitorarea {
+    height: 100%;
+    width: 75%;
+}
+
+.indicatorlamp {
+    height: 10%;
+    width: 90%;
+    margin-left: 5%;
+    margin-right: 5%;
+}
+.indicatorlamp span {
+    text-align-last: justify;      /*均等割り付け*/
+    text-justify: inter-ideograph; /*均等割り付け*/
+}
+
+#header {
+    height: 15%;
+    width: 100%;
+    display: flex;  /*要素を横並びに*/
+}
+#header #carselectbutton {
+    height: 100%;
+    width: 10%;
+}
+#header #carname {
+    height: 100%;
+    width: 25%;
+}
+#header #headerinfos {
+    height: 100%;
+    width: 45%;
+}
+#headerinfos .infoelement {
+    height: 50%;
+    width: 100%;
+}
+#header #clock {
+    height: 100%;
+}
+#header #clock .clocktxt {
+    height: 33.3333%;
+    text-align: right;
+}
+
+#title {
+    height: 5%;
+    width: 100%;
+    text-align: center;  /*中央揃え*/
+    letter-spacing: 0.3em;  /*字間を広げる*/
+}
+
+#operationstatus {
+    height: 70%;
+    width: 100%;
+    display: grid;  /*グリッドレイアウトの親要素*/
+    grid-template-rows: 35% 35%;
+    grid-template-columns: 50% 50%;
+}
+#operationstatus #status_dc{
+    grid-row: 1/2;
+    grid-column: 1/2;
+}
+#operationstatus #status_ac {
+    grid-row: 2/3;
+    grid-column: 1/2;
+}
+#operationstatus #status_vvvf {
+    grid-row: 1/3;
+    grid-column: 2/3;
+}
+
+#Footer {
+    height: 10%;
+    width: 100%;
+}
+
+
+
+
+.infoelement {
+    display: flex;  /*子要素を横並びにする*/
+}
+.infotitle, .infovalue {
+    height: 100%;
+}

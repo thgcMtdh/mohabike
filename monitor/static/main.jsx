@@ -98,9 +98,9 @@ class App extends React.Component {
     render() {
         const carname = carlist[this.state.carindex];
         return (
-            <div>
+            <div id="app">
                 <IndicatorArea info={this.state.info} comfailed={this.state.comfailed}/>
-                <MonitorArea info={this.state.info} carname={carname} maincontents={this.state.maincontents} handleCarChange={this.handleCarChange}/>
+                <MonitorArea info={this.state.info} comfailed={this.state.comfailed} carname={carname} maincontents={this.state.maincontents} handleCarChange={this.handleCarChange}/>
             </div>
         );
     }
@@ -137,8 +137,8 @@ class IndicatorArea extends React.Component {
 class IndicatorLamp extends React.Component {
     render() {
         return (
-            <div className={"indicatorlamp lamp_"+this.props.is_on+" "+this.props.color}>
-                {lampTextList[this.props.keyname]}
+            <div className={"valign "+"indicatorlamp lamp_"+this.props.is_on+" "+this.props.color}>
+                <span>{lampTextList[this.props.keyname]}</span>
             </div>
         )
     }
@@ -147,7 +147,7 @@ class IndicatorLamp extends React.Component {
 class MonitorArea extends React.Component {
     renderMainContents() {
         if (this.props.maincontents == '主回路動作状況') {
-            return (<OperationStatus info={this.props.info}/>)
+            return (<OperationStatus info={this.props.info} comfailed={this.props.comfailed}/>)
         } else if (this.props.maincontents == '車両選択') {
             return (<SelectCars/>)
         } else {
@@ -158,7 +158,9 @@ class MonitorArea extends React.Component {
         return (
             <div id="monitorarea" className="bg_black">
                 <Header carname={this.props.carname} maincontents={this.props.maincontents} onCarChange={this.props.handleCarChange}/>
-                <Title value={this.props.maincontents}/>
+                <div id="title" className=" valign bg_title">
+                    <span>◆{this.props.maincontents}◆</span>
+                </div>
                 {this.renderMainContents()}
                 <Footer/>
             </div>
@@ -177,19 +179,23 @@ class Header extends React.Component {
     render() {
         const next_sta = "本郷三丁目";
         const kilotei = "4.3km";
-        var innertext = (this.props.maincontents == '主回路動作状況')? '車両選択' : '動作状況';
+        var buttontext = (this.props.maincontents == '主回路動作状況')? '車両\r\n選択' : '動作\r\n状況';
         return (
             <div id="header" className="bg_medium">
-                <button id="carselectbutton" onClick={this.handleClick}>{innertext}</button>
-                <div id="carname">{this.props.carname}</div>
-                <InfoElement title={"次駅"} value={next_sta}/>
-                <InfoElement title={"キロ程"} value={kilotei}/>
-                <HeaderClock/>
+                <button id="carselectbutton" onClick={this.handleClick}>{buttontext}</button>
+                <div id="carname" className="valign">
+                    <span>{this.props.carname}</span>
+                </div>
+                <div id="headerinfos">
+                    <InfoElement title={"次駅"} value={next_sta} r={3}/>
+                    <InfoElement title={"キロ程"} value={kilotei} r={3}/>
+                </div>
+                <Clock/>
             </div>
         )
     }
 }
-class HeaderClock extends React.Component {
+class Clock extends React.Component {
     constructor(props) {
         super(props);
         this.state = {date: new Date()};
@@ -210,25 +216,23 @@ class HeaderClock extends React.Component {
         const dayOfWeekStr = ["(日)", "(月)", "(火)", "(水)", "(木)", "(金)", "(土)"];
         return (
             <div id="clock">
-                <div id="clock_date">{this.state.date.toLocaleDateString()}</div>
-                <div id="clock_day">{dayOfWeekStr[this.state.date.getDay()]}</div>
-                <div id="clock_time">{this.state.date.toLocaleTimeString()}</div>
+                <div className="valign clocktxt">
+                    <span>{this.state.date.toLocaleDateString()}</span>
+                </div>
+                <div className="valign clocktxt">
+                    <span>{dayOfWeekStr[this.state.date.getDay()]}</span>
+                </div>
+                <div className="valign clocktxt">
+                    <span>{this.state.date.toLocaleTimeString()}</span>
+                </div>
             </div>
-        )
-    }
-}
-
-class Title extends React.Component {
-    render() {
-        return (
-            <div id="title" className="bg_title">◆{this.props.value}◆</div>
         )
     }
 }
 
 class OperationStatus extends React.Component {
     render() {
-        if (!this.props.info) {
+        if (!this.props.info || this.props.comfailed) {
             var soc = '--';
             var Vdc = '--';
             var fs = '--';
@@ -299,10 +303,19 @@ class Footer extends React.Component {
 
 class InfoElement extends React.Component {
     render() {
+        if (!this.props.r) {  // r(infotitleが全体の横幅に占める割合) を取得
+            var r = 5;
+        } else {
+            var r = this.props.r;
+        }
         return (
             <div className="infoelement">
-                <div className="infotitle">{this.props.title}</div>
-                <div className="infovalue bg_dark">{this.props.value}</div>
+                <div className="infotitle valign" style={{width: r*10 + '%'}}>
+                    <span>{this.props.title}</span>
+                </div>
+                <div className="infovalue valign bg_dark" style={{width: 100-r*10 + '%'}}>
+                    <span>{this.props.value}</span>
+                </div>
             </div>
         )
     }
