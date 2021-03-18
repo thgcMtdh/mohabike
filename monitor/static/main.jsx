@@ -179,7 +179,7 @@ class Header extends React.Component {
     render() {
         const next_sta = "本郷三丁目";
         const kilotei = "4.3km";
-        var buttontext = (this.props.maincontents == '主回路動作状況')? '車両\r\n選択' : '動作\r\n状況';
+        var buttontext = (this.props.maincontents == '主回路動作状況')? '車両選択' : '動作状況';
         return (
             <div id="header" className="bg_medium">
                 <button id="carselectbutton" onClick={this.handleClick}>{buttontext}</button>
