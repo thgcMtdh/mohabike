@@ -1,4 +1,4 @@
-マイコン→HTML
+【マイコン→HTML】
 [数値]
 "speed":
 "fs":
@@ -18,7 +18,7 @@ pedal:
 trouble:
 何か異常があった場合、ゲート出力を全てlowにして、troubleをtrueにする
 
-[マイコンの情報からHTML側で判断]
+【マイコンの情報からHTML側で判断】
 assist:
 アシストしている(T*>0)ときtrue
 regen:
@@ -30,7 +30,7 @@ battLB:
 
 comfailed
 
-HTML→ラズパイ(→マイコン)
+【HTML→ラズパイ(→マイコン)】
 reset:
 falseにするとマイコンを初期化
 serial:
@@ -48,3 +48,19 @@ trueのときマイコンとシリアル通信を行う
 ラズパイでシリアル通信開始指令 (serial->1)
 ↓
 マイコンが一定時間おきにシリアル送信
+
+【車両データ書式】
+PULSEMODELIST(fs,pulsemode,fc1,fc2,frand1,frand2)
+5.4,0,200,200,0,0
+7.0,45,0,0,0,0
+13.7,2,0,0,0,07
+25.0,15,0,0,0,0
+28.0,9,0,0,0,0
+38.0,5,0,0,0,0
+44.3,3,0,0,0,0
+WIDE3PULSE
+0.87
+ALLELECTRICBRAKE
+3.0
+SENSORLESS
+silent
