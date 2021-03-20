@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="utf-8">
+        <title>webpage</title>
+        <link href="static/css/style.css" rel="stylesheet" type="text/css">
+    </head>
+    <body onload="send_control()"> 
+        <div class="wrapper color_medium">
+            <div class="gridwrapper">
+                <div id="control" class="color_light">
+                    <select id="car" class="color_light" name="car" onchange="change_car(); send_car()">
+                        {% for i in carnamelist %}
+                        <option>{{ i }}</option>
+                        {% endfor %}
+                        <option value="default" selected>車両を選択</option>
+                    </select>
+                    <div id="btn_isdynamo" class="btn">
+                        <input type="checkbox" id="isdynamo" onchange="change_btn_isdynamo(); send_control()">
+                        <label for="isdynamo" id="label_isdynamo"><span>ダ<br>イ<br>ナ<br>モ</span></label>
+                    </div>
+                    <div id="btn_isvvvf" class="btn">
+                        <input type="checkbox" id="isvvvf" onchange="change_btn_isvvvf(); send_control()">
+                        <label for="isvvvf" id="label_isvvvf"><span>ス<br>ピ<br>ー<br>カ</span></label>
+                    </div>
+                    <div id="btn_run" class="btn">
+                        <input type="checkbox" id ="run" onchange="change_btn_run(); send_run()">
+                        <label for="run" id="label_run"><span>主回路<br>投入</span></label>
+                    </div>
+                </div>
+
+                <div id="waveinfo" class="color_medium">
+                    <div class="pulsemodearea color_dark"><span id="pulsemode">--</span></div>
+                    <div class="textarea"><span>信号波</span></div>
+                    <div class="dataarea color_dark"><span id="signal">0Hz 0%</span></div>
+                    <div class="textarea"><span>搬送波</span></div>
+                    <div class="dataarea color_dark"><span id="carrer">0Hz</span></div>
+                </div>
+
+                <div id="wavechart" class="color_medium">
+                    <div id="wrapper_modulation" class="color_dark">
+                        <canvas id="modulation" width="392" height="71"></canvas>
+                    </div>
+                    <div id="wrapper_output" class="color_dark">
+                        <canvas id="output" width="392" height="71"></canvas>
+                    </div>   
+                </div>
+
+                <div id="mascon" class="color_light">
+                    <div id="mascon_bg" class="color_dark">
+                        <div id="mascon_panel">
+                            <div id="mascon_handle">
+                                <input type="radio" name="notch" class="notch_checked" id="notch_B" value="B" onchange="change_notch();send_control()" checked>
+                                <label for="notch_B"></label>
+                                <input type="radio" name="notch" class="notch" id="notch_N" value="N" onchange="change_notch();send_control()">
+                                <label for="notch_N"></label>
+                                <input type="radio" name="notch" class="notch" id="notch_P" value="P" onchange="change_notch();send_control()">
+                                <label for="notch_P"></label>
+                            </div>
+                            <div id="mascon_indicator">
+                                <div id="lineB" class="mascon_indicator_line"></div>
+                                <div id="lineN" class="mascon_indicator_line"></div>
+                                <div id="lineP" class="mascon_indicator_line"></div>
+                            </div>
+                            <div id="mascon_text">
+                                <div class="textarea"><span>B</span></div>
+                                <div class="textarea"><span>切</span></div>
+                                <div class="textarea"><span>P</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bc" class="color_medium">
+                    <div id="brake_indicator">
+                        <div id="brake_lamps">
+                            <div id="lamp_EB" class="EBlamp off"><span>非常</span></div>
+                            <div id="lamp_B8" class="brakelamp off"><span>8</span></div>
+                            <div id="lamp_B7" class="brakelamp off"><span>7</span></div>
+                            <div id="lamp_B6" class="brakelamp off"><span>6</span></div>
+                            <div id="lamp_B5" class="brakelamp off"><span>5</span></div>
+                            <div id="lamp_B4" class="brakelamp off"><span>4</span></div>
+                            <div id="lamp_B3" class="brakelamp off"><span>3</span></div>
+                            <div id="lamp_B2" class="brakelamp off"><span>2</span></div>
+                            <div id="lamp_B1" class="brakelamp off"><span>1</span></div>
+                        </div>
+                    </div>
+                </div>
+                    
+                <div id="speedmeter" class="color_medium">
+                    <span id="speed">0</span>
+                    <span id="kmh">km/h</span>
+                    <div id="needlecenter"></div>
+                    <div id="needle"></div>
+                </div>
+                
+                {% for i in carnamelist %}
+                <audio id="brakeoff_{{ i }}" preload="auto" src="static/sound/brakeoff_{{ i }}.wav"></audio>
+                <audio id="hone_{{ i }}" preload="auto" src="static/sound/hone_{{ i }}.wav"></audio>
+                {% endfor %}
+                <audio id="EBannounce" preload="auto" src="static/sound/EBannounce.wav"></audio>
+                <audio id="notch_gacha" preload="auto" src="static/sound/notch_gacha.wav"></audio>
+            </div>
+        </div>
+    </body>
+</html>
+
+
+<!-- websocketを扱うjavascript -->
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.5/socket.io.min.js"></script>
+
+<script type="text/javascript" charset="utf-8">
+
+ /* ------サーバーとの通信関係------- */
+    var socket = io();
+    var speed = 0;
+    var oldspeed = 0;
+    var accs = [0, 0, 0, 0, 0];
+    var acceralation = 0;
+    var count = 0;
+    var notch = 'B';
+    var carindex = 0;
+    var carname = '';
+
+    // サーバからデータを受信
+    socket.on('send_data', function(data) {  // data に、サーバーから渡されたデータが入っている
+        count++;
+        oldspeed = speed; speed = data['speed'];  // speedを取得
+        console.log(speed);
+        // 表示の更新
+        document.getElementById('speed').innerText = Math.round(speed);
+        document.getElementById('needle').style.transform = 'rotate(' + (-30 + 6*speed) + 'deg)';
+        document.getElementById('signal').innerText = Math.round(data['fs']) + ' Hz, ' + Math.round(data['Vs']*100) + ' %';
+        if (data['frand'] > 1.0) {  // ランダム変調オンのとき
+            document.getElementById('carrer').innerText = Math.round(data['fc']) + '±' + Math.round(data['frand']) + ' Hz';
+        } else {
+            document.getElementById('carrer').innerText = Math.round(data['fc']) +' Hz';
+        }
+        if (data['fc'] < 0.01) {
+            document.getElementById('pulsemode').innerText = '--';  // fcが0のときは、インバータが駆動していないので表示しない
+        } else if (data['pulsemode'] <= 0) {
+            document.getElementById('pulsemode').innerText = '非同期';
+        } else {
+            document.getElementById('pulsemode').innerText = '同期 '+ data['pulsemode'] +' パルス';
+        }
+        // 加速度の計算
+        accs[count%5] = speed - oldspeed;  // 直前の速度との差分を計算
+        acceralation = 0;
+        for (var i=0; i<5; i++) {acceralation += accs[i];}  //平均値を求める
+        acceralation = acceralation/5 * 10;  // 加速度[km/h/s]
+        if (speed > 0.1 && notch != 'E') {  // 走行中で、非常ブレーキが作動していないとき
+            var Bnotch = Math.round(-acceralation*2);  // 減速度をノッチとする
+            //if (Bnotch > 9) {Bnotch = 9; notch = 'E'; document.getElementById('EBannounce').play();}  // 15以上ならEB
+            if (Bnotch > 8) {Bnotch = 8;}  // 8以上ならB8
+            else if (Bnotch < 0) {Bnotch = 0;}  // 加速中は0
+            brake_indicate(Bnotch);  // 減速度に応じてランプを表示
+        } else {
+            if (notch == 'B') {brake_indicate(6);}  // 停止中で、ノッチがBに入っていれば、B6
+            if (notch == 'N' || notch == 'P') {brake_indicate(0);}  // ノッチがN,Pに入っていて停止中は、B0
+            if (notch == 'E' && speed < 0.1) {notch = 'B'; brake_indicate(6); send_control}  // EBが入った状態で停止したら、ノッチをB6に戻す
+        }
+       
+    });
+
+    // ブラウザからサーバへ送信
+    function send_control() {
+        if (document.getElementById('isdynamo').checked) {var isdynamo = '1';} else {var isdynamo = '0';}
+        if (document.getElementById('isvvvf').checked) {var isvvvf = '1';} else {var isvvvf = '0';}
+        var control = {'isdynamo':isdynamo, 'isvvvf':isvvvf, 'notch':notch};
+        console.log('send_control');
+        socket.emit('send_control', control);
+    }
+    function send_car() {
+        if (document.getElementById('car').value != 'default') {  // 車両が選択されている場合に限りsend_runする
+            console.log('send_car');
+            socket.emit('send_car', carindex);
+        }
+    }
+    function send_run() {
+        if (document.getElementById('car').value != 'default') {  // 車両が選択されている場合に限りsend_runする
+            send_control;
+            send_car;
+            if (document.getElementById('run').checked) {
+                var run = '1';
+            } else {
+                var run = '0';
+                count = 0; oldspeed = 0; accs = [0,0,0,0,0];  // 停止時、加速度の計算をリセット
+            }
+            console.log('send_run');
+            socket.emit('send_run', run);
+        }
+    }
+
+    // ウィンドウを閉じるときにはPWMを停止
+    window.onbeforeunload = function() {
+        socket.emit('send_run', '0');
+    }
+
+
+/* ------UI関係(ボタンの表示とグラフ描画)------ */
+
+    // ノッチ切り替え時に、適用するCSSを変更し、変数notchを変更、音を出す
+    var notch_B = document.getElementById('notch_B');
+    var notch_N = document.getElementById('notch_N');
+    var notch_P = document.getElementById('notch_P');
+    function change_notch() {
+        document.getElementById('notch_gacha').play();
+        if (notch_B.checked) {
+            notch = 'B';
+            notch_B.className = 'notch_checked';
+            notch_N.className = 'notch';
+            notch_P.className = 'notch';
+            if (speed < 1.0) {brake_indicate(6);}  // Bノッチかつ速度ゼロのときはB6を表示
+        } else if (notch_N.checked) {
+            if (speed < 0.1 && notch == 'B') {  // 停止状態でB→Nへ切り替え時は緩解音
+                document.getElementById('brakeoff_'+carname).play();
+            }  
+            notch = 'N'
+            notch_B.className = 'notch';
+            notch_N.className = 'notch_checked';
+            notch_P.className = 'notch';
+            brake_indicate(0);  // ブレーキ解除
+        } else {
+            if (speed < 0.1 && notch == 'B') {  // 停止状態でB→Pへ切り替え時は緩解音
+                document.getElementById('brakeoff_'+carname).play();
+            }  
+            notch = 'P'
+            notch_B.className = 'notch';
+            notch_N.className = 'notch';
+            notch_P.className = 'notch_checked';
+            brake_indicate(0);  // ブレーキ解除
+        }
+    }
+    // 車両選択時にcarindexとcarnameを変更
+    function change_car() {
+        carindex = document.getElementById('car').selectedIndex;
+        carname = document.getElementById('car').options[carindex].innerHTML;
+        console.log('carname='+carname);
+    }
+    // ボタン操作時に、適用するCSSを変更
+    var btn_isdynamo = document.getElementById('btn_isdynamo');
+    var btn_isvvvf = document.getElementById('btn_isvvvf');
+    var btn_run = document.getElementById('btn_run');
+    function change_btn_isdynamo() {
+        if (document.getElementById('isdynamo').checked) {
+            btn_isdynamo.className = 'btn_checked';
+        } else {
+            btn_isdynamo.className = 'btn';
+        }
+    }
+    function change_btn_isvvvf() {
+        if (document.getElementById('isvvvf').checked) {
+            btn_isvvvf.className = 'btn_checked';
+        } else {
+            btn_isvvvf.className = 'btn';
+        }
+    }
+    function change_btn_run() {
+        if (document.getElementById('run').checked) {
+            btn_run.className = 'btn_checked';
+        } else {
+            btn_run.className = 'btn';
+        }
+    }
+    // 加減速度に応じてブレーキ表示灯を点灯
+    var brakelamps = document.getElementsByClassName('brakelamp');
+    function brake_indicate(notch) {
+        if (notch == 9) {
+            document.getElementById('lamp_EB').className = 'EBlamp EB_on';
+            for (var i=0; i<8; i++) {
+                brakelamps[i].className = 'brakelamp off';
+            }
+        } else {
+            document.getElementById('lamp_EB').className = 'EBlamp off';
+            for (var i=0; i<notch; i++) {
+                brakelamps[7-i].className = 'brakelamp brake_on';
+            }
+            for (var i=0; i<8-notch; i++) {
+                brakelamps[i].className = 'brakelamp off';
+            }
+        }
+    }
+
+    // canvasのサイズを変更
+    var canvas_modulation = document.getElementById('modulation');
+    var canvas_output = document.getElementById('output');
+    window.onload = canvas_resize;  // ウィンドウ読み込み時に実行
+    window.onresize = canvas_resize;  // ウィンドウサイズ変更時に実行
+    function canvas_resize() {
+        canvas_modulation.style.display = 'none';  // 一旦canvasを非表示にし、正しいwrapperのサイズを確定する
+        canvas_output.style.display = 'none';
+        var w = document.getElementById('wrapper_modulation').clientWidth;  // wrapperのサイズを取得
+        var h = document.getElementById('wrapper_modulation').clientHeight;
+        canvas_modulation.setAttribute('width', w);  // canvasのサイズをwrapperと同一にする
+        canvas_modulation.setAttribute('height', h);
+        canvas_output.setAttribute('width', w);
+        canvas_output.setAttribute('height', h);
+        canvas_modulation.style.display = 'block';  // canvasを表示する
+        canvas_output.style.display = 'block';
+    }
+    
+</script>

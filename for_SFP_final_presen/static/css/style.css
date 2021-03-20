@@ -1,0 +1,325 @@
+body {
+    background-color: #000;
+    color: #EEE;
+    font-family: "Arial", "MS Gothic";
+}
+.color_medium {background-color: #36465D;}
+.color_light {background-color: #657389;}
+.color_dark {background-color: #232A2D;}
+div {
+    box-sizing: border-box;
+}
+label {
+    box-sizing: border-box;
+}
+#control, #mascon, #waveinfo {  /* inline-blockで並べたとき、HTMLの改行が原因で微妙な隙間が空くのを防ぐ */
+    letter-spacing: -1em;
+}
+.wrapper {
+    width: 80%;  /* 若干小さめに作り、中央寄せ */
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;  /* 以下、縦横比を16:9に固定するコード */
+}
+.wrapper:before {
+    content: "";
+    display: block;
+    padding-top: 56.25%;
+}
+.gridwrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr;  /* グリッド */
+    grid-template-rows: 1fr 2fr;
+}
+
+.btn input[type="checkbox"] {
+    display: none;
+}
+.btn_checked input[type="checkbox"] {
+    display: none;
+}
+.btn label {  /* ボタン(押されていない) */
+    position: relative;
+    display: block;
+    height: 100%;
+    background-color: #3F4B79;
+    border-top: 4px solid #B5BDD9;
+    border-left: 4px solid #B5BDD9;
+    border-bottom: 4px solid #20263C;
+    border-right: 4px solid #20263C;
+    border-radius: 4px;
+    color: #EEE;
+}
+.btn_checked label {  /* ボタン(押されている) */
+    position: relative;
+    display: block;
+    height: 100%;
+    background-color: #EDDD49;
+    border-top: 4px solid #D1BF15;
+    border-left: 4px solid #D1BF15;
+    border-bottom: 4px solid #F8F2BA;
+    border-right: 4px solid #F8F2BA;
+    border-radius: 4px;
+    color: #232A2D;
+}
+label span {  /* ボタン内の文字を上下中央寄せ */
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%,-50%);
+    width: 100%;
+    text-align: center;
+}
+
+select#car {
+    position: relative;
+    box-sizing: border-box;
+    width: 96%;
+    height: 25%;
+    margin: 2%;
+    border: 1px solid #EEE;
+    border-radius: 2px;
+    padding: 0.3em 2em 0.3em 0.3em;
+    color: #EEE;
+    font-family: "Arial", "MS Gothic";
+    letter-spacing: 0;
+}
+#control .btn, .btn_checked {
+    position: relative;
+    display: inline-block;
+    vertical-align: top;
+    letter-spacing: 0;
+}
+#btn_isdynamo, #btn_isvvvf {
+    width: 21%;
+    height: 64.33%;
+    margin: 2%;
+}
+#btn_run {
+    width: 45%;
+    height: 64.33%;
+    margin: 2%;
+}
+
+#waveinfo .pulsemodearea {
+    position: relative;
+    width: 96%;
+    height: 27%;
+    margin: 2%;
+    padding: 0.2em;
+    letter-spacing: 1px;
+    text-align: center;
+}
+#waveinfo .textarea {
+    position: relative;
+    display: inline-block;
+    width: 36%;
+    height: 27%;
+    margin: 2%;
+    padding: 0.2em;
+    letter-spacing: 0;
+    text-align: center;
+}
+#waveinfo .dataarea {
+    position: relative;
+    display: inline-block;
+    width: 56%;
+    height: 27%;
+    margin: 2%;
+    padding: 0.2em;
+    letter-spacing: 0;
+    text-align: right;
+}
+#waveinfo span {  /* waveinfo内のspanはすべて上下中央寄せ */
+    display: block;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: auto;
+    width: 90%;
+    height: 1em;
+}
+
+#wavechart #wrapper_modulation {
+    width: 98%;
+    height: 47.33%;
+    margin-top: 1%;
+    margin-left: 1%;
+}
+#wavechart #wrapper_output {
+    width: 98%;
+    height: 47.33%;
+    margin-top: -0.5%;  /* 微妙に隙間が空くのを防止 */
+    margin-bottom: 1%;
+    margin-left: 1%;
+}
+
+#mascon_bg {
+    width: 100%;
+    height: 75%;
+    margin-top: 6.25%;
+    overflow: hidden;
+}
+#mascon_panel {
+    width: 75%;
+    height: 88.88%;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 6.25%;
+    border: 2px solid #EEE;
+    border-radius: 5px;
+}
+#mascon_handle {
+    display: inline-block;
+    vertical-align: top;
+    width: 50%;
+    height: 75%;
+    margin-left: 16.66%;
+    margin-top: 16.66%;
+}
+#mascon_handle input[type="radio"] {
+    display: none;
+}
+#mascon_handle label {
+    display: block;
+    height: 33.3%;
+}
+#mascon_handle .notch + label {  /* チェックされていないノッチに適用されるCSS */
+    width: 50%;
+    margin-left: auto;
+    margin-right: auto;
+    background: linear-gradient(90deg, #888, #BBB, #888);
+}
+#mascon_handle .notch_checked + label {  /* チェックされているノッチに適用されるCSS */
+    width: 100%;
+    background: linear-gradient(0deg, #444, #000, #444);
+    box-shadow: 5px 5px 5px #000;
+}
+#mascon_indicator {
+    display: inline-block;
+    vertical-align: top;
+    width: 13.33%;
+    height: 75%;
+    margin-top: 16.66%;
+}
+#mascon_indicator .mascon_indicator_line {
+    display: block;
+    width: 100%;
+    height: 6.66%;
+}
+#mascon_indicator #lineB {margin-top: 100%; background-color: orange;}
+#mascon_indicator #lineN {margin-top: 200%; background-color: #00CC00;}
+#mascon_indicator #lineP {margin-top: 200%; background-color: #EEE;}
+#mascon_text {
+    display: inline-block;
+    vertical-align: top;
+    width: 20%;
+    height: 100%;
+    padding-top: 16.66%;
+    padding-bottom: 16.66%;
+    background-color: #EEE;
+    color: #232A2D;
+}
+#mascon_text .textarea {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding-left: 0.2em;
+    height: 33.3%;
+}
+#mascon_text span {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+#brake_indicator {
+    display: inline-block;
+    width: 50%;
+    height: 100%;
+}
+#brake_lamps {
+    margin-left: 12.5%;
+    margin-right: 12.5%;
+    margin-top: 37.5%;
+    height: 80%;
+}
+#brake_lamps .EBlamp {
+    position: relative;
+    height: 12%;
+    margin: 0;
+    text-align: center;
+}
+#brake_lamps .brakelamp {
+    position: relative;
+    margin-top: 6%;
+    height: 8.8%;
+    text-align: center;
+}
+#brake_lamps .off {background-color: #232A2D; color: #888;}
+#brake_lamps .EB_on {background-color: crimson; color: #EEE;}
+#brake_lamps .brake_on {background-color: #EDDD49; color: #232A2D;}
+#brake_lamps span {
+    display: block;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: auto;
+    width: 90%;
+    height: 1em;
+}
+
+#speedmeter {
+    background-image: url('speedmeter_bg.png');
+    background-size: cover;
+}
+#speedmeter #speed {
+    position: absolute;
+    bottom: 0%;
+    right: 25%;  /* このへんの数値は適当に調整(計算結果ではない) */
+    margin-bottom: 1%;
+    font-size: 350%;
+    font-weight: bold;
+    font-style: italic;
+    text-shadow: 3px 3px 3px #000;
+}
+#speedmeter #kmh {
+    position: absolute;
+    bottom: 0%;
+    left: 78%;
+    margin-bottom: 1.5%;
+    font-size: 150%;
+    font-weight: bold;
+    font-style: italic;
+}
+#speedmeter #needle {
+    position: absolute;
+    left: 59%;
+    top: calc(74.87% - 1.5%);
+    width: 20%;
+    height: 3%;
+    clip-path: polygon(0% 50%, 5% 0%, 100% 0%, 100% 100%, 5% 100%);
+    background-color: #EEE;
+    border: 2px solid #D8EBF0;
+    transform-origin: 80% 50%;
+    transform: rotate(-30deg);
+}
+#speedmeter #needlecenter {
+    position: absolute;
+    left: calc(75% - 2%);
+    top: calc(74.87% - 2%*16/9);
+    width: 4%;
+    height: calc(4% * 16/9);
+    border-radius: 50%;
+    background-color: #EEE;
+    border: 2px solid #D8EBF0;
+}
