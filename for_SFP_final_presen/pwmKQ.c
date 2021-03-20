@@ -74,10 +74,10 @@ int main(int argc, char** argv) {
     bcm2835_gpio_set_pud(PIN_DYNAMO, BCM2835_GPIO_PUD_DOWN);
 
     /* 速度の計算に使う変数 */
-    const double TIMEOUT = 120.0;  // (デバッグ用)この秒数が経過後に処理を停止
+    const double TIMEOUT = 360.0;  // (デバッグ用)この秒数が経過後に処理を停止
     const double DYNAMORATE = 18.64;  // 自転車の時速1km/hあたり、ダイナモの周波数が何Hzか。
     const double MINSPEED = 0.5;
-    const double ACC = 2.0;
+    const double ACC = 1.0;
     const double MAX_T = 1.0 / (MINSPEED*DYNAMORATE);
     const unsigned int dtSAMPLENUM = 19;  // 速度計算時に中央値をとるサンプル数(奇数にすること)
     double tmpspeed = 0.0;
@@ -106,6 +106,7 @@ int main(int argc, char** argv) {
     const double REGEN_LOST_SPEED = 6.0;  // 回生失効する実車速度
     double pwm_newtime = 0.0;
     double pwm_oldtime = 0.0;
+    double pwm_starttime = 0.0;  // [★追加]PWMを開始した時刻
     double Phase_sin_u = 0.0;  // 信号波(正弦波)の位相 (0～1)
     double Phase_sin_v = 0.0;
     double Phase_sin_w = 0.0;
@@ -158,10 +159,14 @@ int main(int argc, char** argv) {
                 oldtime = newtime;
                 newtime = gettime();
                 dt = newtime - oldtime;
-                if (*notch == 'P') {
-                    *speed += ACC * dt;
+                if (*speed < MINSPEED && (*notch=='N' || *notch=='B')) {  // [★追加]速度ゼロでノッチがPへと変わったタイミング(=始動時)を記録しておく
+                    pwm_starttime = newtime;
                 }
-                else if (*notch == 'B') {
+                if (newtime - pwm_starttime < 3.0) {  // [★追加]始動から3秒間は、速度ゼロで位置決め
+                    *speed = 0.0;
+                } else if (*notch == 'P') {
+                    *speed += ACC * dt;
+                } else if (*notch == 'B') {
                     *speed -= ACC*dt;
                     if (*speed < 0.0) *speed = 0.0;
                 }
@@ -170,16 +175,19 @@ int main(int argc, char** argv) {
 
         /* ---PWMの計算--- */
            /* isvvvf=='1'のとき、PWMを計算しGPIOに信号を出力する。'0'のときGPIOはすべてLOW */
-        if (*speed < 1.5) {
-            *trainspeed = 0.1/1.5 * *speed;
-        } else {
-            *trainspeed = 1.4 * *speed - 2.0;
-        }
-        *trainspeed = *trainspeed * 1.5;
 
+        /* 自転車の速度→電車の速度へ換算 */
+        *trainspeed = 3.3 * *speed;
+        // if (*speed < 5.0) {
+        //     *trainspeed = *speed;
+        // } else if (*speed < 10.0) {
+        //     *trainspeed = -5.0 + *speed * 2.0;
+        // } else {
+        //     *trainspeed = -25.0 + *speed * 4.0;
+        // }
         pwm_oldtime = pwm_newtime;
         pwm_newtime = gettime();
-        if (*isvvvf == '1' && *speed > MINSPEED && (*notch=='P' || *notch=='B' && *trainspeed > REGEN_LOST_SPEED)) {
+        if (*isvvvf == '1' && (*notch == 'P' || (*notch != 'P' && *speed > MINSPEED))) {  // [★変更]Pノッチのときは速度によらずpwmを行う
             dt = pwm_newtime - pwm_oldtime;
 
             /* 信号波(モータに入力する正弦波)を計算 */

@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
     const double REGEN_LOST_SPEED = 2.0;  // 回生失効する実車速度
     double pwm_newtime = 0.0;
     double pwm_oldtime = 0.0;
-    double pwm_starttime = 0.0;  // [追加]PWMを開始した時刻
+    double pwm_starttime = 0.0;  // [★追加]PWMを開始した時刻
     double Phase_sin_u = 0.0;  // 信号波(正弦波)の位相 (0～1)
     double Phase_sin_v = 0.0;
     double Phase_sin_w = 0.0;
@@ -159,10 +159,10 @@ int main(int argc, char** argv) {
                 oldtime = newtime;
                 newtime = gettime();
                 dt = newtime - oldtime;
-                if (*speed < MINSPEED && (*notch='N' || *notch='B') {  // 速度ゼロでノッチがPへと変わったタイミング(=始動時)を記録しておく
+                if (*speed < MINSPEED && (*notch=='N' || *notch=='B')) {  // [★追加]速度ゼロでノッチがPへと変わったタイミング(=始動時)を記録しておく
                     pwm_starttime = newtime;
                 }
-                if (newtime - pwm_starttime < 3.0) {  // [追加]始動から3秒間は、速度ゼロで位置決め
+                if (newtime - pwm_starttime < 3.0) {  // [★追加]始動から3秒間は、速度ゼロで位置決め
                     *speed = 0.0;
                 } else if (*notch == 'P') {
                     *speed += ACC * dt;
@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
         // }
         pwm_oldtime = pwm_newtime;
         pwm_newtime = gettime();
-        if (*isvvvf == '1' && *speed > MINSPEED) {  // [変更]ノッチによらず、速度がゼロ以上ならpwmを行う
+        if (*isvvvf == '1' && (*notch == 'P' || (*notch != 'P' && *speed > MINSPEED))) {  // [★変更]Pノッチのときは速度によらずpwmを行う
             dt = pwm_newtime - pwm_oldtime;
 
             /* 信号波(モータに入力する正弦波)を計算 */
