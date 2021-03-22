@@ -198,9 +198,10 @@ int main(int argc, char** argv) {
             Phase_sin_u = Phase_sin_u - (int)Phase_sin_u;  // 整数部を引いて、0以上1未満にする
             Phase_sin_v = Phase_sin_v - (int)Phase_sin_v;
             Phase_sin_w = Phase_sin_w - (int)Phase_sin_w;
-            if (*fs > 44.3) {*Vs = 1.0;}        // 1パルスモードのとき、Vsは1.0
-            else if(*fs > 4.43) {*Vs = *fs/44.3;}  // それ以外の時、電圧は周波数に比例して上昇
-            else {*Vs = 0.1;}
+            // if (*fs > 44.3) {*Vs = 1.0;}        // 1パルスモードのとき、Vsは1.0
+            // else if(*fs > 4.43) {*Vs = *fs/44.3;}  // それ以外の時、電圧は周波数に比例して上昇
+            // else {*Vs = 0.1;}
+            *Vs = *fs/180 + 0.1;
 
             /* パルスモード判定 */
             if (*fs > 58.0) {*pulsemode = 1;}

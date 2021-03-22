@@ -130,7 +130,7 @@
         // 表示の更新
         document.getElementById('speed').innerText = Math.round(speed);
         document.getElementById('needle').style.transform = 'rotate(' + (-30 + 6*speed) + 'deg)';
-        document.getElementById('signal').innerText = Math.round(data['fs']) + ' Hz, ' + Math.round(data['Vs']*100) + ' %';
+        document.getElementById('signal').innerText = Math.round(data['fs']*10)/10 + ' Hz, ' + Math.round(data['Vs']*100) + ' %';
         if (data['frand'] > 1.0) {  // ランダム変調オンのとき
             document.getElementById('carrer').innerText = Math.round(data['fc']) + '±' + Math.round(data['frand']) + ' Hz';
         } else {

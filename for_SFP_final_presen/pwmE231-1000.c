@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
            /* isvvvf=='1'のとき、PWMを計算しGPIOに信号を出力する。'0'のときGPIOはすべてLOW */
 
         /* 自転車の速度→電車の速度へ換算 */
-        *trainspeed = 3.0 * *speed;
+        *trainspeed = 2.3 * *speed;
         // if (*speed < 5.0) {
         //     *trainspeed = *speed;
         // } else if (*speed < 10.0) {
@@ -198,12 +198,14 @@ int main(int argc, char** argv) {
             Phase_sin_u = Phase_sin_u - (int)Phase_sin_u;  // 整数部を引いて、0以上1未満にする
             Phase_sin_v = Phase_sin_v - (int)Phase_sin_v;
             Phase_sin_w = Phase_sin_w - (int)Phase_sin_w;
-            if (*fs > 65) {*Vs = 1.0;}        // 1パルスモードのとき、Vsは1.0
-            else {*Vs = *fs/75 + 10/75;}  // それ以外の時、電圧は周波数に比例して上昇
+            // if (*fs > 65) {*Vs = 1.0;}        // 1パルスモードのとき、Vsは1.0
+            // else if(*fs > 39) {*Vs = *fs/65;}  // それ以外の時、電圧は周波数に比例して上昇
+            // else {*Vs = 0.6;}
+            *Vs = *fs/150 + 0.1;
 
             /* パルスモード判定 */
-            if (*fs > 65) {*pulsemode = 1;}
-            else if (*fs > 59) {*pulsemode = 3;}
+            if (*fs > 80) {*pulsemode = 9;}  // 本来は65Hzで1pulse
+            else if (*fs > 59) {*pulsemode = 9;}  // 本来は59Hzで3pulse
             else if (*fs > 48)  {*pulsemode = -2;}
             else if (*fs > 23)  {*pulsemode = -1;}
             else {*pulsemode = 0;}
