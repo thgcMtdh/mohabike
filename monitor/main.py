@@ -1,4 +1,5 @@
 import time, json, glob, os
+import serial
 import responder
 
 # instead of serial com, read text file
@@ -13,25 +14,29 @@ Iac = 0.0    # 主電動機電流[A](メーターに表示)
 
 # 車両一覧を取得
 carlist = []
-for p in glob.glob("cars/*.txt"):
+for p in glob.glob("static/cars/*.txt"):
     carlist.append(os.path.split(p)[1].replace(".txt", ""))
 print(carlist)
 
 # web server start
 api = responder.API()
 
-@api.background.task
+# @api.background.task
 def recieveinfo():
     global rxbuf, speed, Iac
     print("[recieveinfo] start serial communication")
+    ser = serial.Serial('COM16', 9600)
     while flagSerial:
         # シリアル通信
-        time.sleep(1)
-        rxbuf = rxbuf0  # 実機から文字を受け取る代わりに、ダミーの文字列を利用
+        rxbuf = ser.readline()
+        rxbuf = rxbuf.decode('ascii','ignore')
         # デコード
-        rxdict = json.loads(rxbuf)
-        speed = rxdict['speed']
-        Iac = rxdict['Iac']
+        try:
+            rxdict = json.loads(rxbuf)
+            speed = rxdict['speed']
+            # Iac = rxdict['Iac']
+        except json.decoder.JSONDecodeError:
+           print("[recieveinfo] json.decoder.JSONDecodeError")
     print("[recieveinfo] end serial communication")
             
 @api.route("/")
