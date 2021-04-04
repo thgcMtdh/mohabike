@@ -8,7 +8,7 @@
   "soc":80,
   "Vdc":38.4,
   "Iac":2.5,
-  "Tm":15,
+  "Tw":15,
   "Th":40,
   "power":true,
   "pedal":true,
