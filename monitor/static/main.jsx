@@ -1,5 +1,5 @@
-const lampTextList = {power:'インバータ電源', pedal:'ペダル', assist:'アシスト', regen:'回生', alleb:'全電気ブレーキ', battLB:'バッテリ低電圧', trouble:'三相異常', comfailed:'通信異常'};
-const initialCommand = {reset:true, serial:true};
+const lampTextList = {power:'インバータ電源', pedal:'ペダル', assist:'アシスト', regen:'回生', alleb:'全電気ブレーキ', battLB:'バッテリ低電圧', trouble:'三相異常', comfailed:'通信異常', demo:'デモ'};
+const initialCommand = {reset:true, serial:true, demo:true};
 const cars = {
     "東武100系":{
         "desc":"東武鉄道が1990年から営業運転を開始した特急型車両。うんたらかんたら……"
@@ -27,9 +27,9 @@ function judgeCurrentState(info) {
         // マイコンから受け取ったinfoには、数値情報とpower,pedal,troubleが含まれる
         var result = info;
         // 数値情報をもとに各種stateを判断
-        result.assist = (info.Tm > 0.0);
-        result.regen = (info.Tm < 0.0);
-        result.alleb = (info.Tm < 0.0 && info.Vs < 0.0);
+        result.assist = (info.Tw > 0.0);
+        result.regen = (info.Tw < 0.0);
+        result.alleb = (info.Tw < 0.0 && info.Vs < 0.0);
         result.battLB = (info.Vdc < 36.0);
         return result;
     }
@@ -44,6 +44,7 @@ class App extends React.Component {
             info: null,  // インバータの動作状態(マイコン→HTML)
             command: initialCommand,  // 指令(HTML→マイコン)
             comfailed: false,  // 通信に失敗した際trueになるフラグ
+            demo: true,  // デモモード
             carname: carlist[0],    // 現在選択している車両の名前
             maincontents: '主回路動作状況'  // モニタに表示しているコンテンツ
         }
@@ -55,8 +56,12 @@ class App extends React.Component {
         .then(res => res.json())
         .then(
             (result) => {
-                result = judgeCurrentState(result);
-                this.setState({comfailed: false, info: result});
+                if (result.serialfailed) {
+                    this.setState({comfailed: true});
+                } else {
+                    result = judgeCurrentState(result);
+                    this.setState({comfailed: false, info: result});
+                }
             },
             (error) => {
                 console.log(error);
@@ -113,7 +118,7 @@ class App extends React.Component {
 
     componentWillUnmount() {
         clearInterval(this.timerID);
-        this.setState({command: {reset:false, serial:false}});
+        this.setState({command: initialCommand});
         this.postCommand();
     }
 
@@ -121,7 +126,8 @@ class App extends React.Component {
         return (
             <div id="app">
                 <IndicatorArea info={this.state.info}
-                    comfailed={this.state.comfailed}/>
+                    comfailed={this.state.comfailed}
+                    demo={this.state.demo}/>
                 <MonitorArea info={this.state.info}
                     comfailed={this.state.comfailed}
                     carname={this.state.carname}
@@ -135,14 +141,22 @@ class App extends React.Component {
 
 class IndicatorArea extends React.Component {
     renderLamp(keyname, color) {
-        if (!this.props.info) {  // infoを受け取っていない場合、すべてのランプを点灯
-            var is_on = true;
-        } else {
-            if (keyname == 'comfailed') {
-                var is_on = this.props.comfailed;
-            } else {
-                var is_on = this.props.info[keyname];
-            }
+        switch (keyname) {
+            case 'comfailed':
+                var is_on = this.props.comfailed;  break;
+            case 'demo':
+                var is_on = this.props.demo;  break;
+            default:  // その他のランプは、comfailed時は消灯
+                if (this.props.comfailed) {
+                    var is_on = false;
+                } else {
+                    if (this.props.info) {
+                        var is_on = this.props.info[keyname];
+                    } else {
+                        var is_on = true;
+                    }
+                }
+                break;
         }
         return <IndicatorLamp keyname={keyname} is_on={is_on} color={color}/>;
     }
@@ -151,12 +165,13 @@ class IndicatorArea extends React.Component {
             <div id="indicatorarea" className="bg_black">
                 {this.renderLamp('power', 'indicator_green')}
                 {this.renderLamp('pedal', 'indicator_orange')}
-                {this.renderLamp('assist', 'indicator_orange')}
-                {this.renderLamp('regen', 'indicator_green')}
+                {this.renderLamp('assist', 'indicator_green')}
+                {this.renderLamp('regen', 'indicator_orange')}
                 {this.renderLamp('alleb', 'indicator_orange')}
                 {this.renderLamp('battLB', 'indicator_orange')}
                 {this.renderLamp('trouble', 'indicator_red')}
                 {this.renderLamp('comfailed', 'indicator_red')}
+                {this.renderLamp('demo', 'indicator_orange')}
             </div>
         )
     }
@@ -185,7 +200,7 @@ class MonitorArea extends React.Component {
         return (
             <div id="monitorarea" className="bg_black">
                 <Header carname={this.props.carname}/>
-                <div id="title" className=" valign bg_title">
+                <div id="title" className="valign bg_title">
                     <span>◆{this.props.maincontents}◆</span>
                 </div>
                 {this.renderMainContents()}
@@ -258,7 +273,7 @@ class OperationStatus extends React.Component {
             var fc = '--';
             var frand = '--';
             var rpm = '--';
-            var Pm = '--';
+            var Pw = '--';
             var pulsemode = '--';
         } else {
             var soc = Math.round(this.props.info['soc']);
@@ -267,10 +282,10 @@ class OperationStatus extends React.Component {
             var Vs = Math.round(this.props.info['Vs']*100);
             var fc = Math.round(this.props.info['fc']);
             var frand = Math.round(this.props.info['frand']);
-            var Tm = this.props.info['Tm'];
-            var fm = fs/pp/gear;    // 歯車を通った後の車輪の回転周波数
-            var rpm = Math.round(fm*60*10)/10;
-            var Pm = Math.round(Tm*2*PI*fm*10)/10;
+            var Tw = this.props.info['Tw'];
+            var fw = fs/pp/gear;    // 歯車を通った後の車輪の回転周波数
+            var rpm = Math.round(fw*60*10)/10;
+            var Pw = Math.round(Tw*2*PI*fw*10)/10;
             var pulsemode = this.props.info['pulsemode'];
             if (pulsemode == 0) {
                 pulsemode = '非同期';
@@ -280,15 +295,13 @@ class OperationStatus extends React.Component {
         }
         return (
             <div id="operationstatus" className="bg_medium">
-                <div id="status_dc">
+                <div id="status_dcac">
                     <span className="content_title">DC</span>
                     <InfoElement title={'バッテリ残量'} value={soc+' %'}/>
                     <InfoElement title={'入力電圧'} value={Vdc+' V'}/>
-                </div>
-                <div id="status_ac">
                     <span className="content_title">AC</span>
                     <InfoElement title={'主電動機回転数'} value={rpm+' rpm'}/>
-                    <InfoElement title={'主電動機出力'} value={Pm+' W'}/>
+                    <InfoElement title={'主電動機出力'} value={Pw+' W'}/>
                 </div>
                 <div id="status_vvvf">
                     <span className="content_title">VVVF</span>
@@ -384,8 +397,8 @@ class Footer extends React.Component {
         const status_active = (this.props.maincontents == '主回路動作状況')? "btn_on":"";
         return (
             <div id="footer" className="bg_light">
-               <button id="carselectbutton" className={carselect_active} onClick={this.handleClick}>車両選択</button>
                <button id="statusbutton" className={status_active} onClick={this.handleClick}>動作状況</button>
+               <button id="carselectbutton" className={carselect_active} onClick={this.handleClick}>車両選択</button>
             </div>
         )
     }
