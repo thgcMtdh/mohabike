@@ -8,6 +8,9 @@
     display: flex;  /*appの子要素を横並びにする*/
     color: #FFFFFF;
 }
+html,body {
+    overflow: hidden;  /*スクロール禁止*/
+}
 
 /*valignをもつdivについて、子要素のspanを上下中央揃えにする*/
 .valign {
