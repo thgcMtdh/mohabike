@@ -290,7 +290,7 @@ class OperationStatus extends React.Component {
             if (pulsemode == 0) {
                 pulsemode = '非同期';
             } else {
-                pulsemode = '同期'+pulsemode+'パルス';
+                pulsemode = '同期 '+pulsemode+' パルス';
             }
         }
         return (

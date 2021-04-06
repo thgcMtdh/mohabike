@@ -2,6 +2,17 @@ import time, json, glob, os
 import serial
 import responder
 
+# set up GPIO (please comment out when runnig on )
+# import RPi.GPIO as GPIO
+# pin_servo1 = 23
+# pin_servo2 = 24
+# pin_led = 25
+# GPIO.output(pin_led, GPIO.HIGH)
+# servo1 = GPIO.PWM(pin_servo1, 50)
+# servo2 = GPIO.PWM(pin_servo2, 50)
+# servo1.start(7.5)  # duty cycle [%]
+# servo2.start(7.5)  # duty cycle [%]
+
 # instead of serial com, read text file
 rxbuf0 = open("rxdata.json", "r").read().replace("\n","")
 
