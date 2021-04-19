@@ -1,4 +1,4 @@
-const lampTextList = {power:'インバータ電源', pedal:'ペダル', assist:'アシスト', regen:'回生', alleb:'全電気ブレーキ', battLB:'バッテリ低電圧', trouble:'三相異常', comfailed:'通信異常', demo:'デモ'};
+const lampTextList = {power:'インバータ電源', pedal:'ペダル', assist:'アシスト', regen:'回生', battLB:'バッテリ低電圧', comfailed:'通信異常', demo:'デモ'};
 const initialCommand = {reset:true, serial:true, demo:true};
 const cars = {
     "東武100系":{
@@ -14,7 +14,7 @@ const cars = {
         "desc":"こんな風に車両の説明がある"
     }}
 const carlist = Object.keys(cars);  // 車両の名前一覧
-const interval = 1000;  // 情報を取得する時間間隔[ms]
+const interval = 200;  // 情報を取得する時間間隔[ms]
 const PI = 3.141592653589;
 const pp = 16;          // 極対数
 const gear = 8.0;       // ギア比
@@ -169,7 +169,6 @@ class IndicatorArea extends React.Component {
                 {this.renderLamp('regen', 'indicator_orange')}
                 {this.renderLamp('alleb', 'indicator_orange')}
                 {this.renderLamp('battLB', 'indicator_orange')}
-                {this.renderLamp('trouble', 'indicator_red')}
                 {this.renderLamp('comfailed', 'indicator_red')}
                 {this.renderLamp('demo', 'indicator_orange')}
             </div>
@@ -300,7 +299,7 @@ class OperationStatus extends React.Component {
                     <InfoElement title={'バッテリ残量'} value={soc+' %'}/>
                     <InfoElement title={'入力電圧'} value={Vdc+' V'}/>
                     <span className="content_title">AC</span>
-                    <InfoElement title={'主電動機回転数'} value={rpm+' rpm'}/>
+                    <InfoElement title={'車輪回転数'} value={rpm+' rpm'}/>
                     <InfoElement title={'主電動機出力'} value={Pw+' W'}/>
                 </div>
                 <div id="status_vvvf">

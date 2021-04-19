@@ -2,16 +2,19 @@ import time, json, glob, os
 import serial
 import responder
 
-# set up GPIO (please comment out when runnig on )
-# import RPi.GPIO as GPIO
-# pin_servo1 = 23
-# pin_servo2 = 24
-# pin_led = 25
-# GPIO.output(pin_led, GPIO.HIGH)
-# servo1 = GPIO.PWM(pin_servo1, 50)
-# servo2 = GPIO.PWM(pin_servo2, 50)
-# servo1.start(7.5)  # duty cycle [%]
-# servo2.start(7.5)  # duty cycle [%]
+# setup pigpio
+import pigpio
+pi = pigpio.pi()
+pin_servo1 = 12  # PWM0
+pin_servo2 = 13  # PWM1
+pin_led = 25
+pi.set_mode(pin_servo1, pigpio.OUTPUT)
+pi.set_mode(pin_servo2, pigpio.OUTPUT)
+pi.set_mode(pin_led, pigpio.OUTPUT)
+SERVO_MIN = 26000
+SERVO_MAX = 115000
+pi.hardware_PWM(pin_servo1, 50, SERVO_MIN)  # (PIN, [Hz], duty cycle[%] * 10000)
+pi.write(pin_led, 0)
 
 # instead of serial com, read text file
 rxbuf0 = open("rxdata.json", "r").read().replace("\n","")
@@ -35,15 +38,16 @@ api = responder.API()
 
 @api.background.task
 def recieveinfo():
-    global rxbuf, speed, Iac
+    global rxbuf, speed, Iac, flagSerial
     print("[recieveinfo] start serial communication")
     # シリアルポートをオープン
-    # try:
-    #     ser = serial.Serial('COM16', 9600)
-    # except serial.serialutil.SerialException:
-    #     rxbuf = "{\"serialfailed\":true}"
-    #     flagSerial = False
-
+    try:
+        # ser = serial.Serial('/dev/ttyACM0', 9600)  # USB接続後、ttyACM0
+        ser = None
+    except serial.serialutil.SerialException:
+        rxbuf = "{\"serialfailed\":true}"
+        flagSerial = False
+    
     while flagSerial:
         # シリアル通信
         # rxbuf = ser.readline()
@@ -52,8 +56,9 @@ def recieveinfo():
         # デコード
         try:
             rxdict = json.loads(rxbuf)
-            speed = rxdict['speed']
+            speed = rxdict['speed']   
             # Iac = rxdict['Iac']
+            pi.hardware_PWM(pin_servo1, 50, 26000)  # servoに書き込み(30km/hで180deg)
         except json.decoder.JSONDecodeError:
            print("[recieveinfo] json.decoder.JSONDecodeError")
     print("[recieveinfo] end serial communication")
@@ -86,7 +91,7 @@ async def post_command(req,resp):
     flagSerial = data['serial']
     flagReset = data['reset']
     flagDemo = data['demo']
-    # マイコンのGPIOポートへ転送
+    # マイコンのpiポートへ転送
 
 @api.route("/")
 def hello_html(req,resp):
