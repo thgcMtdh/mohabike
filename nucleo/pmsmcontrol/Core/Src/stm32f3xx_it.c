@@ -48,8 +48,8 @@
 const int16_t asintable[257] = {-32768,-30159,-29076,-28243,-27540,-26919,-26356,-25838,-25354,-24899,-24468,-24057,-23663,-23285,-22921,-22568,-22226,-21894,-21571,-21257,-20950,-20649,-20355,-20068,-19785,-19508,-19236,-18969,-18706,-18447,-18191,-17940,-17692,-17447,-17205,-16967,-16731,-16498,-16267,-16039,-15814,-15591,-15369,-15150,-14933,-14718,-14505,-14294,-14084,-13876,-13670,-13465,-13262,-13060,-12860,-12661,-12463,-12266,-12071,-11877,-11684,-11492,-11302,-11112,-10923,-10735,-10549,-10363,-10178,-9994,-9811,-9628,-9447,-9266,-9086,-8906,-8728,-8550,-8372,-8195,-8019,-7844,-7669,-7495,-7321,-7147,-6975,-6802,-6631,-6459,-6288,-6118,-5948,-5778,-5609,-5440,-5272,-5103,-4936,-4768,-4601,-4434,-4268,-4101,-3935,-3769,-3604,-3439,-3273,-3109,-2944,-2779,-2615,-2451,-2287,-2123,-1959,-1795,-1632,-1468,-1305,-1142,-979,-816,-653,-489,-326,-163,0,162,325,488,652,815,978,1141,1304,1467,1631,1794,1958,2122,2286,2450,2614,2778,2943,3108,3272,3438,3603,3768,3934,4100,4267,4433,4600,4767,4935,5102,5271,5439,5608,5777,5947,6117,6287,6458,6630,6801,6974,7146,7320,7494,7668,7843,8018,8194,8371,8549,8727,8905,9085,9265,9446,9627,9810,9993,10177,10362,10548,10734,10922,11111,11301,11491,11683,11876,12070,12265,12462,12660,12859,13059,13261,13464,13669,13875,14083,14293,14504,14717,14932,15149,15368,15590,15813,16038,16266,16497,16730,16966,17204,17446,17691,17939,18190,18446,18705,18968,19235,19507,19784,20067,20354,20648,20949,21256,21570,21893,22225,22567,22920,23284,23662,24056,24467,24898,25353,25837,26355,26918,27539,28242,29075,30158,32767};  // arc sine lookup table. input=[0 256] mapped to [-1 1], y=[-32768 32767] mapped to [-pi/2 pi/2)
 
 int timCounter;  // for sync mode
-uint32_t last_speed_update = 0;  // last speed update time
 uint32_t TIM2CCRvals[dtSAMPLENUM] = {429496729, 429496729, 429496729, 429496729, 429496729};  // to calculate average fs. smaller than LONGMAX/SAMPLENUM
+int i_dt = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -60,7 +60,7 @@ float calc_phase_delta(float, float);
 float arcsin_f32(float);
 float triangle(uint16_t);
 void get_pulsemodeNo(float, float, int*, int*);
-void calc_fc(int, float, int*, float*);
+void calc_fc(int, float, int*, float*, float*);
 float newton_downslope(float, float, float, uint32_t);
 float newton_upslope(float, float, float, uint32_t);
 /* USER CODE END PFP */
@@ -72,8 +72,8 @@ float newton_upslope(float, float, float, uint32_t);
 
 /* External variables --------------------------------------------------------*/
 extern ADC_HandleTypeDef hadc1;
-extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
+extern DMA_HandleTypeDef hdma_usart2_rx;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -217,6 +217,20 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles DMA1 channel6 global interrupt.
+  */
+void DMA1_Channel6_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel6_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel6_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_usart2_rx);
+  /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel6_IRQn 1 */
+}
+
+/**
   * @brief This function handles ADC1 interrupt.
   */
 void ADC1_IRQHandler(void)
@@ -226,59 +240,73 @@ void ADC1_IRQHandler(void)
   /* USER CODE END ADC1_IRQn 0 */
   HAL_ADC_IRQHandler(&hadc1);
   /* USER CODE BEGIN ADC1_IRQn 1 */
-  ADCBuffer[0] = ADC1 -> JDR1;
-  ADCBuffer[1] = ADC1 -> JDR2;
-  ADCBuffer[2] = ADC1 -> JDR3;
-  /* USER CODE END ADC1_IRQn 1 */
-}
+  volatile uint16_t adcU = ADC1 -> JDR1;
+  volatile uint16_t adcV = ADC1 -> JDR2;
+  volatile uint16_t adcDCV = ADC1 -> JDR3;
 
-/**
-  * @brief This function handles TIM1 update and TIM16 interrupts.
-  */
-void TIM1_UP_TIM16_IRQHandler(void)
-{
-  /* USER CODE BEGIN TIM1_UP_TIM16_IRQn 0 */
+  // speed is acquired on TIM2 interrupt whether or not inverter is active
+  if (hallstate == STOP) omega_est = 0.0;
+  fs = omega_est /2.0/PI;
+  speed = 3.6 * omega_est/GEAR*R_TIRE;
 
-  /* USER CODE END TIM1_UP_TIM16_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim1);
-  /* USER CODE BEGIN TIM1_UP_TIM16_IRQn 1 */
-
-  if (1) {
-	  // estimate rotor velocity and angle
-	  // for test
-//	  omega_est += acc*CtrlPrd;
-//	  omega_est = 2.0;
-//	  if (omega_est < 0.0) omega_est = 0.0;
-//	  fs = omega_est/2/PI;  // rotor electric frequency[Hz]
-//	  theta_est += (uint32_t)(fs * CtrlPrd * 4294967296);
-
-	  // fs is acquired on TIM2 interrupt
-	  omega_est = fs * 2.0*PI;
-	  speed = 3.6 * 2.0*PI*R_TIRE*fs/GEAR;
-
-	  // 6 step
-	  // (read hall sensors as GPIO Input)
-	  hall_u = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5);
-	  hall_v = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3);
-	  hall_w = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10);
-
-	  switch ((hall_u<<2) + (hall_v<<1) + hall_w) {
-	  case (1<<2) + (0<<1) + 1 : sector = 1; break;
-	  case (1<<2) + (0<<1) + 0 : sector = 2; break;
-	  case (1<<2) + (1<<1) + 0 : sector = 3; break;
-	  case (0<<2) + (1<<1) + 0 : sector = 4; break;
-	  case (0<<2) + (1<<1) + 1 : sector = 5; break;
-	  case (0<<2) + (0<<1) + 1 : sector = 6; break;
+  // judge current HallState
+  if (mode == DEMO) {
+	  switch (hallstate) {
+	  case STOP:
+		  if (omega_ref > 0) hallstate = SELFSTART;
+		  break;
+	  case SELFSTART:
+		  break;
+	  case HALL1:
+	  case HALLSTEADY:
+		  if (TIM2->CNT > dtMAX) hallstate = STOP;  // omega is too slow, regard rotor as stopped
+		  break;
 	  }
-	  theta_est = (sector - 1) *  715827882 + 357913941;
+  }
+
+  // operate inverter
+  if (invstate == INVON) {
+	  TIM1->EGR &= ~TIM_EGR_BG_Msk;  // clear BRK
+	  if (mode == DEMO) {
+		  omega_ref += acc*CtrlPrd;
+		  if (omega_ref > 100.0*2*PI) omega_ref = 100.0*2*PI;
+	  } else {
+		  omega_ref = 0.0;
+	  }
+
+	  // read hall sensor signal
+	  uint8_t hall_u = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5);
+	  uint8_t hall_v = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3);
+	  uint8_t hall_w = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10);
+
+	  uint8_t sector = 0;
+	  switch ((hall_u<<2) + (hall_v<<1) + hall_w) {
+		  case (1<<2) + (0<<1) + 1 : sector = 1; break;
+		  case (1<<2) + (0<<1) + 0 : sector = 2; break;
+		  case (1<<2) + (1<<1) + 0 : sector = 3; break;
+		  case (0<<2) + (1<<1) + 0 : sector = 4; break;
+		  case (0<<2) + (1<<1) + 1 : sector = 5; break;
+		  case (0<<2) + (0<<1) + 1 : sector = 6; break;
+	  }
+	  uint32_t theta_est0 = (sector - 1) *  715827882;
+
+	  // estimate rotor position
+	  if (hallstate != HALLSTEADY) {  // add 30deg
+		  theta_est = theta_est0 + 357913941;
+	  } else {  // we can acquire T/6 = TIM2->CCR1, t = TIM2->CNT, so current phase is uint32max/6*t/T
+		  theta_est = theta_est0 + (uint32_t)((float)TIM2->CNT/FCLK*fs * 715827882);
+	  }
 
 	  // compute voltage command
-	  //Vd = 0.05;
-	  //Vq = 0.1;
-	  Vq += 0.04 * ((float)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7) - 0.5) * CtrlPrd;
-	  if (Vq>0.8) Vq = 0.8;
-	  Vd = 0.0;
-	  if (Vq<0.0) Vq=0.0;
+	  if (hallstate == STOP) {
+		  Vd = 0.0;
+		  Vq = 0.0;
+	  } else {
+		  Vd = 0.0;
+		  Vq = omega_ref/600.0;
+		  if (Vq>1.0) Vq = 1.0;
+		  if (Vq<0.0) Vq = 0.0;
+	  }
 	  arm_sqrt_f32(Vd*Vd + Vq*Vq, &Vs);
 
 	  // compute U phase wave angle
@@ -309,7 +337,6 @@ void TIM1_UP_TIM16_IRQHandler(void)
 		  } else if (pulsemode > 0 && pulsemode_ref > 0) {
 			  if (timCounter == 0) {  // at the first bottom of carrier
 				  pmNo = pmNo_ref;
-				  timCounter = 0;  // initialize variables
 				  flagModeChanged = 1;  // set flag which indicates pulse mode has changed
 			  }
 
@@ -321,7 +348,7 @@ void TIM1_UP_TIM16_IRQHandler(void)
 		  }
 	  }
 
-	  calc_fc(pmNo, fs, &pulsemode, &fc);
+	  calc_fc(pmNo, fs, &pulsemode, &fc, &fc0);
 
 	  // PWM
 	  if (pulsemode == 0) {
@@ -329,9 +356,11 @@ void TIM1_UP_TIM16_IRQHandler(void)
 	  } else {
 		  sync_pwm(flagModeChanged);
 	  }
+  } else {  // INVOFF
+	  TIM1->EGR |= TIM_EGR_BG_Msk;  // BRK Generation
   }
 
-  /* USER CODE END TIM1_UP_TIM16_IRQn 1 */
+  /* USER CODE END ADC1_IRQn 1 */
 }
 
 /**
@@ -348,17 +377,27 @@ void TIM2_IRQHandler(void)
   uint32_t capturedvalue = TIM2->CCR1;
   uint32_t capturedsum = 0;
 
-  if (capturedvalue > 8192) {  // avoid zero division
-	  for (int i=0; i<dtSAMPLENUM-1; i++) {
-	  	  TIM2CCRvals[i] = TIM2CCRvals[i+1];
-	  }
-	  TIM2CCRvals[dtSAMPLENUM-1] = capturedvalue;  // put new value to array
+  if (capturedvalue > 8192) {  // avoid zero division and chattering
+	  TIM2CCRvals[i_dt] = capturedvalue;  // put new value to array
+	  i_dt++;
+	  if (i_dt > dtSAMPLENUM-1) i_dt = 0;
 	  // calculate average
 	  for (int i=0; i<dtSAMPLENUM; i++) {
 	  	  capturedsum += TIM2CCRvals[i];
 	  }
-	  fs = (float)FCLK/6/capturedsum*dtSAMPLENUM;
+	  omega_est = (float)FCLK/6/capturedsum*dtSAMPLENUM * 2*PI;
+
+	  // update hallstate
+	  if (mode == DEMO) {
+		  switch(hallstate) {
+		  case SELFSTART:
+			  hallstate = HALL1; break;
+		  case HALL1:
+			  hallstate = HALLSTEADY; break;
+		  }
+	  }
   }
+
 
   /* USER CODE END TIM2_IRQn 1 */
 }
@@ -495,14 +534,25 @@ void get_pulsemodeNo(float Vq_in, float fs_in, int* pmNo_ref_out, int* pulsemode
 		for (i=pulsenum-1; i>=0; i--) {
 			if (fs_in >= list_fs[i]) break;
 		}
-		*pmNo_ref_out = i;
-		*pulsemode_ref_out = list_pulsemode[i];
+		if (i == 0) {
+			*pmNo_ref_out = i;
+			*pulsemode_ref_out = list_pulsemode[i];
+		} else  {
+			// when accelerating (i > pmNo), add hysteresis
+			if ((i > pmNo && fs_in - list_fs[i] > 2.0) || i <= pmNo) {
+				*pmNo_ref_out = i;
+				*pulsemode_ref_out = list_pulsemode[i];
+			} else {
+				*pmNo_ref_out = i-1;
+				*pulsemode_ref_out = list_pulsemode[i-1];
+			}
+		}
 	}
 }
 
 /* param:  pulse mode No.
  * retval: pulse mode, fc */
-void calc_fc(int i, float fs_in, int* pulsemode_out, float* fc_out) {
+void calc_fc(int i, float fs_in, int* pulsemode_out, float* fc_out, float* fc0_out) {
 	*pulsemode_out = list_pulsemode[i];
 	float fs1 = list_fs[i];
 	float fs2 = (i==pulsenum-1)? fs1+10 : list_fs[i+1];
@@ -510,9 +560,11 @@ void calc_fc(int i, float fs_in, int* pulsemode_out, float* fc_out) {
 
 	if (*pulsemode_out == 0) {
 		frand = list_frand1[i] + (list_frand2[i] - list_frand1[i]) * (fs_in - fs1) / (fs2 - fs1);
-		*fc_out = list_fc1[i] + (list_fc2[i] - list_fc1[i]) * (fs_in - fs1) / (fs2 - fs1) + frand * ((float)rand()*2.0/RAND_MAX - 1.0);
+		*fc0_out = list_fc1[i] + (list_fc2[i] - list_fc1[i]) * (fs_in - fs1) / (fs2 - fs1);
+		*fc_out = *fc0_out + frand * ((float)rand()*2.0/RAND_MAX - 1.0);
 	} else {
-		*fc_out = *pulsemode_out * fs_in;
+		*fc0_out = fs_in * *pulsemode_out;
+		*fc_out = *fc0_out;
 	}
 }
 

@@ -69,15 +69,24 @@ void Error_Handler(void);
 
 #define FCLK 72000000  // system clock frequency [Hz]
 #define PRSC 9         // prescaler of TIM1
+#define INITIALFC 2000.0  // carrier frequency when MCU start
 #define R_TIRE 0.3302  // radius of tire [m]
 #define GEAR 112.6533  // pole pair * gear ratio (motor freq -> tire rotation freq)
-#define dtMAX 36000000   // if there is no hall transition in dtMAX/FCLK [s], assume motor7 has stopped
-#define ADCBufferSize 3
-#define dtSAMPLENUM 5    // the number of samples to calculate average speed
+#define dtMAX 36000000   // if there is no hall transition in dtMAX/FCLK [s], assume motor has stopped
+#define RXBUFFERSIZE 16  // must be power of two
+#define TXBUFFERSIZE 128 // tx max length
+#define UARTTIMEOUT 50   // UART Timeout [ms]
+#define dtSAMPLENUM 10    // the number of samples to calculate average speed
+#define PULSEMODESIZE 16 // size of pulse mode list
+
+extern enum Notch {EB, B8, B7, B6, B5, B4, B3, B2, B1, N, P1, P2, P3, P4, P5, PT, LEN_Notch} notch;  // notch
+extern enum Mode {DEMO, ASSIST, EBIKE} mode;  // operation mode
+extern enum HallState {STOP, SELFSTART, HALL1, HALLSTEADY} hallstate ;  // operation state of hall sensor drive
+extern enum InvState {INVOFF, INVON} invstate ;  // operation state of inverter
 
 extern uint32_t theta_est, theta_u;
-extern float CtrlPrd, omega_est, speed;
-extern float fs, fc;
+extern float CtrlPrd, omega_est, omega_ref, speed;
+extern float fs, fc, fc0;
 extern float Vd, Vq, Vs, Vdc;
 extern float acc;
 extern int pmNo, pmNo_ref;
@@ -85,8 +94,7 @@ extern int pulsemode, pulsemode_ref;
 extern volatile uint32_t start, stop;
 extern float list_fs[16], list_fc1[16], list_fc2[16], list_frand1[16], list_frand2[16];
 extern int list_pulsemode[16], pulsenum;
-extern volatile uint16_t ADCBuffer[ADCBufferSize];
-extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef huart1, huart2;
 extern uint8_t hall_u, hall_v, hall_w, sector;
 
 /* USER CODE END Private defines */

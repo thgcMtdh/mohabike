@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cardata.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -47,45 +48,56 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
+enum Notch notch = N;
+enum Mode mode = DEMO;
+enum HallState hallstate = STOP;
+enum InvState invstate = INVOFF;
+
 volatile uint32_t start = 0;  // for process time measurement
 volatile uint32_t stop = 0;   // for process time measurement
 uint32_t theta_est = 0;  // estimated rotor electric angle (65536^2/2pi * omega[rad])
 uint32_t theta_u = 0;    // U voltage phase angle (65536^2/2pi * omega[rad])
 float omega_est = 0.0;  // estimated rotor electric angular velocity [rad/s]
+float omega_ref = 0.0;  // (for demo mode only) omega command [rad/s]
 float CtrlPrd = 0.0;    // control period [s]
 float speed = 0.0;      // bicycle speed [km/h]
 float fs = 0.0;  // estimated rotor electric frequency [Hz]
-float fc = 500.0;  // carrier frequency [Hz]
-float Vd = 0.0;  // voltage command [-1 1]
-float Vq = 0.0;  // voltage command [-1 1]
+float fc = INITIALFC;  // carrier frequency (include random modulation) [Hz]
+float fc0 = INITIALFC; // carrier frequency (exclude random modulation) [Hz]
+float Vd = 0.0;  // d-axis voltage command [-1 1]
+float Vq = 0.0;  // q-axis voltage command [-1 1]
 float Vs = 0.0;  // signal voltage =sqrt(Vd^2+Vq^2) [-1 1]
 float Vdc = 36.0;
-float acc = 0.0;  // (for demo) acceleration [rad/s/s]
+float acc = 0.0;  // (for demo) acceleration set to change omega_ref [rad/s/s]
 int pulsemode = 0;  // pulse mode
-int pmNo = 0;  // pulse mode index
+int pmNo = 0;       // pulse mode index
 int pmNo_ref = 0;
 int pulsemode_ref = 0;
-volatile uint16_t ADCBuffer[ADCBufferSize];  // ADC buffer (0:U, 1:V, 2:Vdc)
-uint8_t hall_u, hall_v, hall_w;
-uint8_t sector;
+static uint8_t dma_rx_buf[RXBUFFERSIZE];  // rx buffer written by DMA
+static uint32_t rd_ptr, dma_write_ptr;  // rx pointer
+int carno = 0;
 
 /* array for pulse pattern data */
-float list_fs[16], list_fc1[16], list_fc2[16], list_frand1[16], list_frand2[16];
-int list_pulsemode[16], pulsenum;
+float list_fs[PULSEMODESIZE], list_fc1[PULSEMODESIZE], list_fc2[PULSEMODESIZE], list_frand1[PULSEMODESIZE], list_frand2[PULSEMODESIZE];
+int list_pulsemode[PULSEMODESIZE], pulsenum;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-void decode_data(char*);
+int USART2_RX_IsEmpty(void);
+uint8_t USART2_RX_Read(void);
+void decode_pulsemode(const char*);
 float newton_downslope(float, float, float, uint32_t);
 float newton_upslope(float, float, float, uint32_t);
 /* USER CODE END PFP */
@@ -123,68 +135,110 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  /** for measuring process time */
+  /* to measure process time (if you want to get CPU cycle, access DWT->CYCCNT) */
   CoreDebug -> DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
   DWT -> CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-  // to get CPU cycle, access DWT->CYCCNT
 
-  /** initial setup */
-  /** Set frequency params */
-  //char str[] = "0,0,200,200,0,0,\n7.0,45,0,0,0,0,\n13.7,27,0,0,0,0,\n25.0,15,0,0,0,0,\n28.0,9,0,0,0,0,";//\n38.0,6,0,0,0,0\n44.3,3,0,0,0,0";
-  //char str[] = "0,0,1050,1050,0,0,\n23,0,1050,700,0,0,\n48,0,700,1800,0,0,\n59,0,1062,1242,0,0,";
-  char str[] = "0,0,2000,2000,0,0,";
-  decode_data(str);
-
-  fc = list_fc1[0];  // initial carrier freq [Hz]
+  /* initialize TIM1 parameters */
   TIM1->PSC = PRSC-1;
   TIM1->ARR = (uint16_t)((float)FCLK/2/PRSC/fc);
   CtrlPrd = 1.0/2.0/fc;
 
+  /* start peripherals */
+  HAL_UART_Receive_DMA(&huart2, dma_rx_buf, RXBUFFERSIZE);
+  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+  HAL_ADCEx_InjectedStart_IT(&hadc1);  // ADC sampling and control interrupt
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
-  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
-  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
-  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
-  HAL_TIM_Base_Start_IT(&htim1);  // control interrupt
+//  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+//  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
+//  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
   HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_1);  // hall sensor input capture
   HAL_TIM_Base_Start_IT(&htim2);            // hall sensor transition interrupt
-  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
-  HAL_ADCEx_InjectedStart_IT(&hadc1);  // enable ADC sampling
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  acc = 0.0;
+
+  char rxbuf[RXBUFFERSIZE];
+  char txbuf[TXBUFFERSIZE];
+
   while (1)
   {
-	  Vdc = 107.5/7.5 * ADCBuffer[2] / 4096;
-	  // send data to serial
-	  char txbuf[128];
-	  sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f}\n",speed,fs,Vs,pulsemode,fc,Vdc);
-	  HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), 10);
+	// initialize buffer
+	memset(rxbuf, 0, RXBUFFERSIZE);
+	memset(txbuf, 0, TXBUFFERSIZE);
+	int notallowed = 0;
 
-	  // receive command
-//	  char rxbuf;
-//	  if (HAL_UART_Receive(&huart2, &rxbuf, 1, 5000) == HAL_OK) {
-//		  switch (rxbuf) {
-//		  case 'p':
-//			  acc = 10.0; break;
-//		  case 'b':
-//		  	  acc = -10.0; break;
-//		  case 'n':
-//		  	  acc = 0.0; break;
-//		  }
-//	  }
+	// receive
+	int i = 0;
+	while (!USART2_RX_IsEmpty()) {
+		rxbuf[i] = USART2_RX_Read();
+		i++;
+	}
+	// when receive "invoff"
+	if (!strncmp(rxbuf, "invoff", 6)) {
+		if (hallstate == STOP) {
+			invstate = INVOFF;
+		} else {
+			notallowed = 1;
+		}
+	}
+	// when receive "carno=%d"
+	else if (!strncmp(rxbuf, "carno=", 6)) {
+		if (invstate == INVOFF) {
+			carno = 0;
+			sscanf(rxbuf, "carno=%d", &carno);
+			if (carno < NUMOFCAR) {
+				decode_pulsemode(carstr[carno]);
+				invstate = INVON;
+			} else {
+				notallowed = 1;
+			}
 
-	  HAL_Delay(200);
+		} else {
+			notallowed = 1;
+		}
+	}
+	// when receive "mode=%d"
+	else if (!strncmp(rxbuf, "mode=", 5)) {
+		if (invstate == INVOFF) {
+			sscanf(rxbuf, "mode=%d", &mode);
+		} else {
+			notallowed = 1;
+		}
+	}
+	// when receive notch command
+	else if (!strncmp(rxbuf, "notch=", 6)) {
+		sscanf(rxbuf, "notch=%d", &notch);
+	}
+	else if (rxbuf[0] == 'P') {
+		notch = P5;
+	}
+	else if (rxbuf[0] == 'N') {
+		notch = N;
+	}
+	else if (rxbuf[0] == 'B') {
+		notch = B6;
+	}
+	sprintf(txbuf, "{\"invstate\":%d, \"carno\":%d, \"mode\":%d, \"notch\":%d, \"notallowed\":%d}\n", invstate,carno,mode,notch,notallowed);
+	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);  // respond
+
+	// send data to serial
+	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"acc\":%f}\n",speed,fs,Vs,pulsemode,fc0,Vdc,acc);
+	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);
+
+	HAL_Delay(1000);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -386,7 +440,7 @@ static void MX_TIM1_Init(void)
   sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_ENABLE;
   sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
   sBreakDeadTimeConfig.DeadTime = 0;
-  sBreakDeadTimeConfig.BreakState = TIM_BREAK_ENABLE;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
   sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_LOW;
   sBreakDeadTimeConfig.BreakFilter = 0;
   sBreakDeadTimeConfig.Break2State = TIM_BREAK2_DISABLE;
@@ -474,7 +528,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 1000000;
+  huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -489,7 +543,30 @@ static void MX_USART2_UART_Init(void)
   }
   /* USER CODE BEGIN USART2_Init 2 */
 
+  /* initialization to use UART2 DMA */
+  memset(dma_rx_buf, 0, RXBUFFERSIZE);
+  rd_ptr = 0;
+  // These UART interrupts halt any ongoing transfer if an error occurs, disable them
+  __HAL_UART_DISABLE_IT(&huart2, UART_IT_PE);   // Disable the UART Parity Error Interrupt
+  __HAL_UART_DISABLE_IT(&huart2, UART_IT_ERR);  // Disable the UART Error Interrupt: (Frame error, noise error, overrun error)
+
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
 
 }
 
@@ -516,21 +593,47 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+int USART2_RX_IsEmpty(void)
+{
+	dma_write_ptr = (RXBUFFERSIZE - huart2.hdmarx->Instance->CNDTR) % RXBUFFERSIZE;
+    return (rd_ptr == dma_write_ptr);
+}
+
+uint8_t USART2_RX_Read(void)
+{
+    uint8_t c = 0;
+    dma_write_ptr = (RXBUFFERSIZE - huart2.hdmarx->Instance->CNDTR) % RXBUFFERSIZE;
+    if(rd_ptr != dma_write_ptr) {
+        c = dma_rx_buf[rd_ptr++];
+        rd_ptr %= RXBUFFERSIZE;
+    }
+    return c;
+}
 
 /**
   * @brief Decode text data which describe pulse pattern
   * @param char*
   * @retval None
   */
-void decode_data(char* str)
+void decode_pulsemode(const char* str)
 {
 	char buf[10];
-	int row = 0;
-	int i = 0, j = 0;
-	enum DataKind {FS, PULSEMODE, FC1, FC2, FRAND1, FRAND2, W3PULSE, ALLE, SENSORLESS} datakind = 0;
+	int row, i, j;
+	enum DataKind {FS, PULSEMODE, FC1, FC2, FRAND1, FRAND2} datakind = 0;
+
+	for (row = 0; row < PULSEMODESIZE; row++) {  // initialize pulse mode list
+		list_fs[row] = 0.0;
+		list_pulsemode[row] = 0;
+		list_fc1[row] = 0.0;
+		list_fc2[row] = 0.0;
+		list_frand1[row] = 0.0;
+		list_frand2[row] = 0.0;
+	}
+
+	row = 0; i = 0; j = 0;
 
 	while (str[i] != '\0') {
-	    if (str[i] == ',') {
+	    if (str[i] == ',' || str[i] == '\n') {  // at the end of a data
     		buf[j] = '\0';
 			switch (datakind) {
 			case FS:
@@ -547,15 +650,15 @@ void decode_data(char* str)
 				list_frand2[row] = atof(buf); break;
 			}
 			j = 0;
-		    datakind++;
-		} else if (str[i] == '\n') {
-			j = 0;
-			datakind = 0;
-			row++;
+		    datakind++;  // move to the next data
 		} else {
-			buf[j] = str[i];
+			buf[j] = str[i];  // read a character
 			j++;
 		}
+	    if (str[i] == '\n') {  // at the end of a line
+			datakind = 0;
+			row++; // move to the next row
+	    }
 	    i++;
 	}
 	pulsenum = row + 1;
