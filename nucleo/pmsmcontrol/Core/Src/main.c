@@ -161,8 +161,8 @@ int main(void)
 //  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
 //  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
 //  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
-  HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_1);  // hall sensor input capture
-  HAL_TIM_Base_Start_IT(&htim2);            // hall sensor transition interrupt
+//  HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_1);  // hall sensor input capture
+//  HAL_TIM_Base_Start_IT(&htim2);            // hall sensor transition interrupt
 
   /* USER CODE END 2 */
 
@@ -187,11 +187,7 @@ int main(void)
 	}
 	// when receive "invoff"
 	if (!strncmp(rxbuf, "invoff", 6)) {
-		if (hallstate == STOP) {
-			invstate = INVOFF;
-		} else {
-			notallowed = 1;
-		}
+		invstate = INVOFF;
 	}
 	// when receive "carno=%d"
 	else if (!strncmp(rxbuf, "carno=", 6)) {
@@ -242,11 +238,12 @@ int main(void)
 		acc = eb0[carno]/3.6/rwheel[carno]*gr[carno]*pp[carno];
 	}
 
+	HAL_Delay(200);
+
 	// send data to serial
 	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"acc\":%f}\n",speed,fs,Vs,pulsemode,fc0,Vdc,acc);
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);
 
-	HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 

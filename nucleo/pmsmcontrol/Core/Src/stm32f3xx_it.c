@@ -262,6 +262,8 @@ void ADC1_IRQHandler(void)
 		  break;
 	  }
   }
+  hallstate = HALLSTEADY;  // force HALLSTEADY when motor is not connected
+  omega_est = omega_ref;
 
   // operate inverter
   if (invstate == INVON) {
@@ -296,7 +298,7 @@ void ADC1_IRQHandler(void)
 	  } else {  // we can acquire T/6 = TIM2->CCR1, t = TIM2->CNT, so current phase is uint32max/6*t/T
 		  theta_est = theta_est0 + (uint32_t)((float)TIM2->CNT/FCLK*fs * 715827882);
 	  }
-	  theta_est = 0;
+	  theta_est += (uint32_t)(omega_ref * CtrlPrd * 4294967296);
 
 	  // compute voltage command
 	  if (hallstate == STOP) {
@@ -540,7 +542,7 @@ void get_pulsemodeNo(float Vq_in, float fs_in, int* pmNo_ref_out, int* pulsemode
 			*pulsemode_ref_out = list_pulsemode[i];
 		} else  {
 			// when accelerating (i > pmNo), add hysteresis
-			if ((i > pmNo && fs_in - list_fs[i] > 2.0) || i <= pmNo) {
+			if ((i > pmNo && fs_in - list_fs[i] > 1.0) || i <= pmNo) {
 				*pmNo_ref_out = i;
 				*pulsemode_ref_out = list_pulsemode[i];
 			} else {
