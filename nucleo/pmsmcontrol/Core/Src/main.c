@@ -172,6 +172,10 @@ int main(void)
   char rxbuf[RXBUFFERSIZE];
   char txbuf[TXBUFFERSIZE];
 
+  invstate = INVON;
+  decode_pulsemode(carstr[1]);
+  omega_ref = 55.0*2*PI;
+
   while (1)
   {
 	// initialize buffer
@@ -226,22 +230,24 @@ int main(void)
 	else if (rxbuf[0] == 'B') {
 		notch = B6;
 	}
-	sprintf(txbuf, "{\"invstate\":%d, \"carno\":%d, \"mode\":%d, \"notch\":%d, \"notallowed\":%d}\n", invstate,carno,mode,notch,notallowed);
-	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);  // respond
+	//sprintf(txbuf, "{\"invstate\":%d, \"carno\":%d, \"mode\":%d, \"notch\":%d, \"notallowed\":%d}\n", invstate,carno,mode,notch,notallowed);
+	//HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);  // respond
 
 	// apply notch
-	if (notch > N) {  // P
-		acc = acc0[carno]*(notch-N)/(P5-N)/3.6/rwheel[carno]*gr[carno]*pp[carno];
-	} else if (EB < notch) {
-		acc = brk0[carno]*(notch-N)/(B8-N)/3.6/rwheel[carno]*gr[carno]*pp[carno];
-	} else {
-		acc = eb0[carno]/3.6/rwheel[carno]*gr[carno]*pp[carno];
-	}
+//	if (notch > N) {  // P
+//		acc = acc0[carno]*(notch-N)/(P5-N)/3.6/rwheel[carno]*gr[carno]*pp[carno];
+//	} else if (EB < notch) {
+//		acc = brk0[carno]*(notch-N)/(B8-N)/3.6/rwheel[carno]*gr[carno]*pp[carno];
+//	} else {
+//		acc = eb0[carno]/3.6/rwheel[carno]*gr[carno]*pp[carno];
+//	}
+
+	acc = (float)200 *2*((float)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) - 0.5);
 
 	HAL_Delay(200);
 
 	// send data to serial
-	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"acc\":%f}\n",speed,fs,Vs,pulsemode,fc0,Vdc,acc);
+	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"acc\":%f, \"Iac\":%f}\n",speed,fs,Vs,pulsemode,fc0,Vdc,acc,0.0);
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);
 
 
@@ -590,8 +596,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pin : PB7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  /*Configure GPIO pins : PB7 PB8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
