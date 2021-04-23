@@ -233,6 +233,15 @@ int main(void)
 	sprintf(txbuf, "{\"invstate\":%d, \"carno\":%d, \"mode\":%d, \"notch\":%d, \"notallowed\":%d}\n", invstate,carno,mode,notch,notallowed);
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);  // respond
 
+	// apply notch
+	if (notch > N) {  // P
+		acc = acc0[carno]*(notch-N)/(P5-N)/3.6/rwheel[carno]*gr[carno]*pp[carno];
+	} else if (EB < notch) {
+		acc = brk0[carno]*(notch-N)/(B8-N)/3.6/rwheel[carno]*gr[carno]*pp[carno];
+	} else {
+		acc = eb0[carno]/3.6/rwheel[carno]*gr[carno]*pp[carno];
+	}
+
 	// send data to serial
 	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"acc\":%f}\n",speed,fs,Vs,pulsemode,fc0,Vdc,acc);
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);

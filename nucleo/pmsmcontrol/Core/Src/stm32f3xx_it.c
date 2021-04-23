@@ -256,7 +256,6 @@ void ADC1_IRQHandler(void)
 		  if (omega_ref > 0) hallstate = SELFSTART;
 		  break;
 	  case SELFSTART:
-		  break;
 	  case HALL1:
 	  case HALLSTEADY:
 		  if (TIM2->CNT > dtMAX) hallstate = STOP;  // omega is too slow, regard rotor as stopped
@@ -270,6 +269,7 @@ void ADC1_IRQHandler(void)
 	  if (mode == DEMO) {
 		  omega_ref += acc*CtrlPrd;
 		  if (omega_ref > 100.0*2*PI) omega_ref = 100.0*2*PI;
+		  if (omega_ref < 0.0) omega_ref = 0.0;
 	  } else {
 		  omega_ref = 0.0;
 	  }
@@ -296,6 +296,7 @@ void ADC1_IRQHandler(void)
 	  } else {  // we can acquire T/6 = TIM2->CCR1, t = TIM2->CNT, so current phase is uint32max/6*t/T
 		  theta_est = theta_est0 + (uint32_t)((float)TIM2->CNT/FCLK*fs * 715827882);
 	  }
+	  theta_est = 0;
 
 	  // compute voltage command
 	  if (hallstate == STOP) {

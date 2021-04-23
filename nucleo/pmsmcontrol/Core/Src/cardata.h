@@ -12,8 +12,8 @@ const char* carstr[NUMOFCAR] = {
 };
 
 const float acc0[NUMOFCAR] = {3.3, 2.3};  // starting acceleration [km/h/s]
-const float brk0[NUMOFCAR] = {4.0, 4.5};  // usual max break acceleration [km/h/s]
-const float eb0[NUMOFCAR] = {4.5, 4.5};  // emergency break acceleration [km/h/s]
+const float brk0[NUMOFCAR] = {-4.0, -4.5};  // usual max break acceleration [km/h/s]
+const float eb0[NUMOFCAR] = {-4.5, -4.5};  // emergency break acceleration [km/h/s]
 const float gr[NUMOFCAR] = {7.2, 6.6};  // gear ratio
-const float pp[NUMOFCAR] = {4, 4};  // pole pair
+const float pp[NUMOFCAR] = {2, 2};  // pole pair
 const float rwheel[NUMOFCAR] = {0.43, 0.43};  // radius of wheel [m]

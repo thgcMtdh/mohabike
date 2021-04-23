@@ -76,7 +76,7 @@ void Error_Handler(void);
 #define RXBUFFERSIZE 16  // must be power of two
 #define TXBUFFERSIZE 128 // tx max length
 #define UARTTIMEOUT 50   // UART Timeout [ms]
-#define dtSAMPLENUM 10    // the number of samples to calculate average speed
+#define dtSAMPLENUM 5    // the number of samples to calculate average speed
 #define PULSEMODESIZE 16 // size of pulse mode list
 
 extern enum Notch {EB, B8, B7, B6, B5, B4, B3, B2, B1, N, P1, P2, P3, P4, P5, PT, LEN_Notch} notch;  // notch
