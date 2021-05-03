@@ -74,20 +74,23 @@ void Error_Handler(void);
 #define GEAR 112.6533  // pole pair * gear ratio (motor freq -> tire rotation freq)
 #define dtMAX 36000000   // if there is no hall transition in dtMAX/FCLK [s], assume motor has stopped
 #define RXBUFFERSIZE 16  // must be power of two
-#define TXBUFFERSIZE 128 // tx max length
+#define TXBUFFERSIZE 192 // tx max length
 #define UARTTIMEOUT 50   // UART Timeout [ms]
-#define dtSAMPLENUM 5    // the number of samples to calculate average speed
+#define dtSAMPLENUM 10    // the number of samples to calculate average speed
 #define PULSEMODESIZE 16 // size of pulse mode list
 
-extern enum Notch {EB, B8, B7, B6, B5, B4, B3, B2, B1, N, P1, P2, P3, P4, P5, PT, LEN_Notch} notch;  // notch
-extern enum Mode {DEMO, ASSIST, EBIKE} mode;  // operation mode
-extern enum HallState {STOP, SELFSTART, HALL1, HALLSTEADY} hallstate ;  // operation state of hall sensor drive
-extern enum InvState {INVOFF, INVON} invstate ;  // operation state of inverter
+volatile extern enum Notch {EB, B8, B7, B6, B5, B4, B3, B2, B1, N, P1, P2, P3, P4, P5, PT, LEN_Notch} notch;  // notch
+volatile extern enum Mode {DEMO, ASSIST, EBIKE} mode;  // operation mode
+volatile extern enum HallState {STOP, SELFSTART, HALL1, HALLSTEADY} hallstate ;  // operation state of hall sensor drive
+volatile extern enum InvState {INVOFF, INVON} invstate ;  // operation state of inverter
+const extern enum InputMode {GPIO, SERIAL} inputmode;  // notch command input source
+const extern enum CtrlMode {SPEAKER, HALL, SENSORLESS} ctrlmode;  // control algorithm of motor
 
 extern uint32_t theta_est, theta_u;
 extern float CtrlPrd, omega_est, omega_ref, speed;
 extern float fs, fc, fc0;
 extern float Vd, Vq, Vs, Vdc;
+extern float Id, Iq, Iac;
 extern float acc;
 extern int pmNo, pmNo_ref;
 extern int pulsemode, pulsemode_ref;

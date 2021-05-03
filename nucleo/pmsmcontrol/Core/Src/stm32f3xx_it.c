@@ -243,34 +243,16 @@ void ADC1_IRQHandler(void)
   volatile uint16_t adcU = ADC1 -> JDR1;
   volatile uint16_t adcV = ADC1 -> JDR2;
   volatile uint16_t adcDCV = ADC1 -> JDR3;
-
-  // speed is acquired on TIM2 interrupt whether or not inverter is active
-  if (hallstate == STOP) omega_est = 0.0;
-  fs = omega_est /2.0/PI;
-  speed = 3.6 * omega_est/GEAR*R_TIRE;
-
-  // judge current HallState
-  if (mode == DEMO) {
-	  switch (hallstate) {
-	  case STOP:
-		  if (omega_ref > 0) hallstate = SELFSTART;
-		  break;
-	  case SELFSTART:
-	  case HALL1:
-	  case HALLSTEADY:
-		  if (TIM2->CNT > dtMAX) hallstate = STOP;  // omega is too slow, regard rotor as stopped
-		  break;
-	  }
-  }
-  hallstate = HALLSTEADY;  // force HALLSTEADY when motor is not connected
-  omega_est = omega_ref;
+  Vdc = 3.3 * adcDCV/4096 * 107.5/7.5;
+  Iac = adcU;//(3.3 * adcU/4096 - 2.5) * 20.0;
 
   // operate inverter
   if (invstate == INVON) {
 	  TIM1->EGR &= ~TIM_EGR_BG_Msk;  // clear BRK
-	  if (mode == DEMO) {
+
+	  if (mode == DEMO) {  // when demo mode, set speed reference
 		  omega_ref += acc*CtrlPrd;
-		  if (omega_ref > 200.0*2*PI) omega_ref = 200.0*2*PI;
+		  if (omega_ref > (1-0.04)*890.0) omega_ref = (1-0.04)*890.0;
 		  if (omega_ref < 0.0) omega_ref = 0.0;
 	  } else {
 		  omega_ref = 0.0;
@@ -281,36 +263,67 @@ void ADC1_IRQHandler(void)
 	  uint8_t hall_v = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3);
 	  uint8_t hall_w = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10);
 
-	  uint8_t sector = 0;
+	  // calc sector
 	  switch ((hall_u<<2) + (hall_v<<1) + hall_w) {
-		  case (1<<2) + (0<<1) + 1 : sector = 1; break;
-		  case (1<<2) + (0<<1) + 0 : sector = 2; break;
-		  case (1<<2) + (1<<1) + 0 : sector = 3; break;
-		  case (0<<2) + (1<<1) + 0 : sector = 4; break;
-		  case (0<<2) + (1<<1) + 1 : sector = 5; break;
-		  case (0<<2) + (0<<1) + 1 : sector = 6; break;
+		  case (1<<2) + (0<<1) + 1 : sector = 5; break;
+		  case (1<<2) + (0<<1) + 0 : sector = 6; break;
+		  case (1<<2) + (1<<1) + 0 : sector = 1; break;
+		  case (0<<2) + (1<<1) + 0 : sector = 2; break;
+		  case (0<<2) + (1<<1) + 1 : sector = 3; break;
+		  case (0<<2) + (0<<1) + 1 : sector = 4; break;
 	  }
-	  uint32_t theta_est0 = (sector - 1) *  715827882;
 
-	  // estimate rotor position
-//	  if (hallstate != HALLSTEADY) {  // add 30deg
-//		  theta_est = theta_est0 + 357913941;
-//	  } else {  // we can acquire T/6 = TIM2->CCR1, t = TIM2->CNT, so current phase is uint32max/6*t/T
-//		  theta_est = theta_est0 + (uint32_t)((float)TIM2->CNT/FCLK*fs * 715827882);
-//	  }
-	  theta_est += (uint32_t)(omega_ref * CtrlPrd * 4294967296/2/PI);
+	  // operate with hall sensor
+	  if (ctrlmode == HALL) {
+		  // get speed
+		  if (hallstate == STOP) omega_est = 0.0;
 
-	  // compute voltage command
-	  if (hallstate == STOP) {
+		  // judge current HallState
+		  if (mode == DEMO) {
+			  switch (hallstate) {
+			  case STOP:
+				  if (omega_ref > 0) hallstate = SELFSTART;
+				  break;
+			  case SELFSTART:
+			  case HALL1:
+			  case HALLSTEADY:
+				  if (TIM2->CNT > dtMAX) hallstate = STOP;  // if omega is too slow, regard rotor as stopped
+				  break;
+			  }
+		  }
+
+		  // estimate rotor position
+		  uint32_t theta_est0 = (sector - 1) *  715827882;
+
+		  if (hallstate != HALLSTEADY) {  // add 30deg
+			  theta_est = theta_est0 + 357913941;
+		  } else {  // we can acquire T/6 = TIM2->CCR1, t = TIM2->CNT, so current phase is uint32max/6*t/T
+			  theta_est = theta_est0 + (uint32_t)((float)TIM2->CNT/FCLK*fs * 4294967296);
+		  }
+
+		  // compute voltage command
+		  if (hallstate == STOP || omega_ref < 0.1) {
+			  Vd = 0.0;
+			  Vq = 0.0;
+		  } else {
+			  Vd = 0.0;
+			  Vq = 0.04+omega_ref/890.0;
+		  }
+
+	  // forced operation
+	  } else if (ctrlmode == SPEAKER) {
+		  omega_est = omega_ref;  // forcedly decide omega and theta without any feedback
+		  theta_est += (uint32_t)(omega_est * CtrlPrd * 4294967296/2/PI);
 		  Vd = 0.0;
-		  Vq = 0.0;
-	  } else {
-		  Vd = 0.0;
-		  Vq = omega_ref/600.0;
-		  if (Vq>1.0) Vq = 1.0;
-		  if (Vq<0.0) Vq = 0.0;
+		  Vq = omega_est/600.0;
 	  }
+
+	  if (Vq>1.0) Vq = 1.0;
+	  if (Vq<0.0) Vq = 0.0;
 	  arm_sqrt_f32(Vd*Vd + Vq*Vq, &Vs);
+
+	  fs = omega_est /2.0/PI;
+	  speed = 3.6 * omega_est/GEAR*R_TIRE;
 
 	  // compute U phase wave angle
 	  int32_t phase_delta = (int32_t)(calc_phase_delta(Vd, Vq) / PI * 2147483648);
@@ -318,7 +331,7 @@ void ADC1_IRQHandler(void)
 
 	  // get target pulse mode
 	  int pmNo_ref, pulsemode_ref;
-	  get_pulsemodeNo(Vq, fs, &pmNo_ref, &pulsemode_ref);
+	  get_pulsemodeNo(Vq, omega_ref/2/PI, &pmNo_ref, &pulsemode_ref);
 
 	  int flagModeChanged = 0;
 	  // change pulse mode at sine zero cross on the top of carrier
@@ -351,7 +364,7 @@ void ADC1_IRQHandler(void)
 		  }
 	  }
 
-	  calc_fc(pmNo, fs, &pulsemode, &fc, &fc0);
+	  calc_fc(pmNo, omega_ref/2/PI, &pulsemode, &fc, &fc0);
 
 	  // PWM
 	  if (pulsemode == 0) {
@@ -534,22 +547,11 @@ void get_pulsemodeNo(float Vq_in, float fs_in, int* pmNo_ref_out, int* pulsemode
 		*pulsemode_ref_out = list_pulsemode[0];
 	} else {
 		int i=0;
-		for (i=pulsenum-1; i>=0; i--) {
+		for (i=pulsenum-1; i>=0; i--) {  // search pulsemode index
 			if (fs_in >= list_fs[i]) break;
 		}
-		if (i == 0) {
-			*pmNo_ref_out = i;
-			*pulsemode_ref_out = list_pulsemode[i];
-		} else  {
-			// when accelerating (i > pmNo), add hysteresis
-			if ((i > pmNo && fs_in - list_fs[i] > 1.0) || i <= pmNo) {
-				*pmNo_ref_out = i;
-				*pulsemode_ref_out = list_pulsemode[i];
-			} else {
-				*pmNo_ref_out = i-1;
-				*pulsemode_ref_out = list_pulsemode[i-1];
-			}
-		}
+		*pmNo_ref_out = i;
+		*pulsemode_ref_out = list_pulsemode[i];
 	}
 }
 

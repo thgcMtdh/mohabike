@@ -19,10 +19,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cardata.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "cardata.h"
 
 /* USER CODE END Includes */
 
@@ -51,10 +51,12 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
-enum Notch notch = N;
-enum Mode mode = DEMO;
-enum HallState hallstate = STOP;
-enum InvState invstate = INVOFF;
+volatile enum Notch notch = N;
+volatile enum Mode mode = DEMO;
+volatile enum HallState hallstate = STOP;
+volatile enum InvState invstate = INVOFF;
+const enum InputMode inputmode = SERIAL;
+const enum CtrlMode ctrlmode = SPEAKER;
 
 volatile uint32_t start = 0;  // for process time measurement
 volatile uint32_t stop = 0;   // for process time measurement
@@ -71,6 +73,9 @@ float Vd = 0.0;  // d-axis voltage command [-1 1]
 float Vq = 0.0;  // q-axis voltage command [-1 1]
 float Vs = 0.0;  // signal voltage =sqrt(Vd^2+Vq^2) [-1 1]
 float Vdc = 36.0;
+float Id = 0.0;
+float Iq = 0.0;
+float Iac = 0.0;
 float acc = 0.0;  // (for demo) acceleration set to change omega_ref [rad/s/s]
 int pulsemode = 0;  // pulse mode
 int pmNo = 0;       // pulse mode index
@@ -78,7 +83,7 @@ int pmNo_ref = 0;
 int pulsemode_ref = 0;
 static uint8_t dma_rx_buf[RXBUFFERSIZE];  // rx buffer written by DMA
 static uint32_t rd_ptr, dma_write_ptr;  // rx pointer
-int carno = 0;
+uint8_t sector = 0;
 
 /* array for pulse pattern data */
 float list_fs[PULSEMODESIZE], list_fc1[PULSEMODESIZE], list_fc2[PULSEMODESIZE], list_frand1[PULSEMODESIZE], list_frand2[PULSEMODESIZE];
@@ -161,8 +166,22 @@ int main(void)
 //  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
 //  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
 //  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
-//  HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_1);  // hall sensor input capture
-//  HAL_TIM_Base_Start_IT(&htim2);            // hall sensor transition interrupt
+  if (ctrlmode == HALL) {
+	  HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_1);  // hall sensor input capture
+	  HAL_TIM_Base_Start_IT(&htim2);            // hall sensor transition interrupt
+  } else {
+	  HAL_TIM_IC_Stop(&htim2, TIM_CHANNEL_1);
+	  HAL_TIM_Base_Stop_IT(&htim2);
+  }
+
+  int carno = 0;
+  struct CarData* car = &cardata[carno];  // car data in use
+
+  if (inputmode == GPIO) {
+	  invstate = INVON;
+	  car = &cardata[1];
+	  decode_pulsemode(car->pattern);
+  }
 
   /* USER CODE END 2 */
 
@@ -172,16 +191,11 @@ int main(void)
   char rxbuf[RXBUFFERSIZE];
   char txbuf[TXBUFFERSIZE];
 
-  invstate = INVON;
-  decode_pulsemode(carstr[1]);
-  omega_ref = 55.0*2*PI;
-
   while (1)
   {
 	// initialize buffer
 	memset(rxbuf, 0, RXBUFFERSIZE);
 	memset(txbuf, 0, TXBUFFERSIZE);
-	int notallowed = 0;
 
 	// receive
 	int i = 0;
@@ -193,33 +207,26 @@ int main(void)
 	if (!strncmp(rxbuf, "invoff", 6)) {
 		invstate = INVOFF;
 	}
-	// when receive "carno=%d"
+	// when receive "carno=%d", change car only when the inverter is off
 	else if (!strncmp(rxbuf, "carno=", 6)) {
 		if (invstate == INVOFF) {
-			carno = 0;
 			sscanf(rxbuf, "carno=%d", &carno);
 			if (carno < NUMOFCAR) {
-				decode_pulsemode(carstr[carno]);
+				car = &cardata[carno];
+				decode_pulsemode(car->pattern);
 				invstate = INVON;
-			} else {
-				notallowed = 1;
 			}
-
-		} else {
-			notallowed = 1;
 		}
 	}
-	// when receive "mode=%d"
+	// when receive "mode=%d", change mode only when the inverter is off
 	else if (!strncmp(rxbuf, "mode=", 5)) {
 		if (invstate == INVOFF) {
-			sscanf(rxbuf, "mode=%d", &mode);
-		} else {
-			notallowed = 1;
+			sscanf(rxbuf, "mode=%d", (int*)&mode);
 		}
 	}
 	// when receive notch command
 	else if (!strncmp(rxbuf, "notch=", 6)) {
-		sscanf(rxbuf, "notch=%d", &notch);
+		sscanf(rxbuf, "notch=%d", (int*)&notch);
 	}
 	else if (rxbuf[0] == 'P') {
 		notch = P5;
@@ -228,26 +235,34 @@ int main(void)
 		notch = N;
 	}
 	else if (rxbuf[0] == 'B') {
-		notch = B6;
+		notch = B8;
 	}
-	//sprintf(txbuf, "{\"invstate\":%d, \"carno\":%d, \"mode\":%d, \"notch\":%d, \"notallowed\":%d}\n", invstate,carno,mode,notch,notallowed);
-	//HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);  // respond
 
 	// apply notch
-//	if (notch > N) {  // P
-//		acc = acc0[carno]*(notch-N)/(P5-N)/3.6/rwheel[carno]*gr[carno]*pp[carno];
-//	} else if (EB < notch) {
-//		acc = brk0[carno]*(notch-N)/(B8-N)/3.6/rwheel[carno]*gr[carno]*pp[carno];
-//	} else {
-//		acc = eb0[carno]/3.6/rwheel[carno]*gr[carno]*pp[carno];
-//	}
+	if (inputmode == SERIAL) {
+		if (notch > N) {  // P
+			acc = car->acc0*(notch-N)/(P5-N)/3.6/car->rwheel*car->gr*car->pp;
+		} else if (EB < notch) {
+			acc = car->brk0*(notch-N)/(B8-N)/3.6/car->rwheel*car->gr*car->pp;
+		} else {
+			acc = car->eb0/3.6/car->rwheel*car->gr*car->pp;
+		}
+	} else if (inputmode == GPIO) {
+		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8)) {
+			notch = P5;
+			acc = car->acc0/3.6/car->rwheel*car->gr*car->pp;
+		} else {
+			notch = B8;
+			acc = car->brk0/3.6/car->rwheel*car->gr*car->pp;
+		}
+	}
 
-	acc = (float)200 *2*((float)HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) - 0.5);
-
-	HAL_Delay(200);
+	HAL_Delay(100);
 
 	// send data to serial
-	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"acc\":%f, \"Iac\":%f}\n",speed,fs,Vs,pulsemode,fc0,Vdc,acc,0.0);
+	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f,\"Iac\":%f, \"notch\":%d, \"carno\":%d, \"mode\":%d, \"invstate\":%d, \"sector:\":%d}\n",speed,fs,omega_ref/2/PI,Vs,pulsemode,fc0,Vdc,Iac,(int)notch,carno,(int)mode,(int)invstate,sector);
+	//sprintf(txbuf, "\"sector\":%d\n", sector);
+	//sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f,}\n", speed,fs,omega_ref/2/PI,Vs*100);
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);
 
 
@@ -348,7 +363,7 @@ static void MX_ADC1_Init(void)
   sConfigInjected.InjectedRank = ADC_INJECTED_RANK_1;
   sConfigInjected.InjectedSingleDiff = ADC_SINGLE_ENDED;
   sConfigInjected.InjectedNbrOfConversion = 3;
-  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_7CYCLES_5;
+  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_19CYCLES_5;
   sConfigInjected.ExternalTrigInjecConvEdge = ADC_EXTERNALTRIGINJECCONV_EDGE_RISING;
   sConfigInjected.ExternalTrigInjecConv = ADC_EXTERNALTRIGINJECCONV_T1_TRGO;
   sConfigInjected.AutoInjectedConv = DISABLE;
@@ -372,6 +387,7 @@ static void MX_ADC1_Init(void)
   */
   sConfigInjected.InjectedChannel = ADC_CHANNEL_5;
   sConfigInjected.InjectedRank = ADC_INJECTED_RANK_3;
+  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_7CYCLES_5;
   if (HAL_ADCEx_InjectedConfigChannel(&hadc1, &sConfigInjected) != HAL_OK)
   {
     Error_Handler();
@@ -596,8 +612,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pins : PB7 PB8 */
-  GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_8;
+  /*Configure GPIO pin : PB8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
