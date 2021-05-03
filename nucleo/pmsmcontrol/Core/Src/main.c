@@ -103,6 +103,7 @@ static void MX_TIM2_Init(void);
 int USART2_RX_IsEmpty(void);
 uint8_t USART2_RX_Read(void);
 void decode_pulsemode(const char*);
+void inv_reset(void);
 float newton_downslope(float, float, float, uint32_t);
 float newton_upslope(float, float, float, uint32_t);
 /* USER CODE END PFP */
@@ -205,7 +206,7 @@ int main(void)
 	}
 	// when receive "invoff"
 	if (!strncmp(rxbuf, "invoff", 6)) {
-		invstate = INVOFF;
+		inv_reset();
 	}
 	// when receive "carno=%d", change car only when the inverter is off
 	else if (!strncmp(rxbuf, "carno=", 6)) {
@@ -225,17 +226,21 @@ int main(void)
 		}
 	}
 	// when receive notch command
-	else if (!strncmp(rxbuf, "notch=", 6)) {
-		sscanf(rxbuf, "notch=%d", (int*)&notch);
-	}
-	else if (rxbuf[0] == 'P') {
-		notch = P5;
-	}
-	else if (rxbuf[0] == 'N') {
+	if (invstate == INVON) {
+		if (!strncmp(rxbuf, "notch=", 6)) {
+			sscanf(rxbuf, "notch=%d", (int*)&notch);
+		}
+		else if (rxbuf[0] == 'P') {
+			notch = P5;
+		}
+		else if (rxbuf[0] == 'N') {
+			notch = N;
+		}
+		else if (rxbuf[0] == 'B') {
+			notch = B8;
+		}
+	} else {
 		notch = N;
-	}
-	else if (rxbuf[0] == 'B') {
-		notch = B8;
 	}
 
 	// apply notch
@@ -260,7 +265,8 @@ int main(void)
 	HAL_Delay(100);
 
 	// send data to serial
-	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f,\"Iac\":%f, \"notch\":%d, \"carno\":%d, \"mode\":%d, \"invstate\":%d, \"sector:\":%d}\n",speed,fs,omega_ref/2/PI,Vs,pulsemode,fc0,Vdc,Iac,(int)notch,carno,(int)mode,(int)invstate,sector);
+	Iac = 0.0;
+	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"Iac\":%f, \"notch\":%d, \"carno\":%d, \"mode\":%d, \"invstate\":%d}\n",speed,fs,omega_ref/2/PI,Vs,pulsemode,fc0,Vdc,Iac,(int)notch,carno,(int)mode,(int)invstate);
 	//sprintf(txbuf, "\"sector\":%d\n", sector);
 	//sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f,}\n", speed,fs,omega_ref/2/PI,Vs*100);
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);
@@ -690,6 +696,33 @@ void decode_pulsemode(const char* str)
 	    i++;
 	}
 	pulsenum = row + 1;
+}
+
+void inv_reset() {
+	notch = N;
+	hallstate = STOP;
+	invstate = INVOFF;
+	theta_est = 0;
+	theta_u = 0;
+	omega_est = 0.0;
+	omega_ref = 0.0;
+	CtrlPrd = 0.0;
+	speed = 0.0;
+	fs = 0.0;
+	fc = INITIALFC;
+	fc0 = INITIALFC;
+	Vd = 0.0;
+	Vq = 0.0;
+	Vs = 0.0;
+	Vdc = 36.0;
+	Id = 0.0;
+	Iq = 0.0;
+	Iac = 0.0;
+	acc = 0.0;
+	pulsemode = 0;
+	pmNo = 0;
+	pmNo_ref = 0;
+	pulsemode_ref = 0;
 }
 /* USER CODE END 4 */
 
