@@ -367,11 +367,12 @@ void ADC1_IRQHandler(void)
 	  calc_fc(pmNo, omega_ref/2/PI, &pulsemode, &fc, &fc0);
 
 	  // PWM
-	  if (pulsemode == 0) {
-		  async_pwm();
-	  } else {
-		  sync_pwm(flagModeChanged);
-	  }
+	  async_pwm();
+//	  if (pulsemode == 0) {
+//		  async_pwm();
+//	  } else {
+//		  sync_pwm(flagModeChanged);
+//	  }
   } else {  // INVOFF
 	  TIM1->EGR |= TIM_EGR_BG_Msk;  // BRK Generation
   }
@@ -561,7 +562,7 @@ void calc_fc(int i, float fs_in, int* pulsemode_out, float* fc_out, float* fc0_o
 	*pulsemode_out = list_pulsemode[i];
 	float fs1 = list_fs[i];
 	float fs2 = (i==pulsenum-1)? fs1+10 : list_fs[i+1];
-	float frand = 0.0;
+	frand = 0.0;
 
 	if (*pulsemode_out == 0) {
 		frand = list_frand1[i] + (list_frand2[i] - list_frand1[i]) * (fs_in - fs1) / (fs2 - fs1);

@@ -69,6 +69,7 @@ float speed = 0.0;      // bicycle speed [km/h]
 float fs = 0.0;  // estimated rotor electric frequency [Hz]
 float fc = INITIALFC;  // carrier frequency (include random modulation) [Hz]
 float fc0 = INITIALFC; // carrier frequency (exclude random modulation) [Hz]
+float frand = 0.0;     // random modulation frequency
 float Vd = 0.0;  // d-axis voltage command [-1 1]
 float Vq = 0.0;  // q-axis voltage command [-1 1]
 float Vs = 0.0;  // signal voltage =sqrt(Vd^2+Vq^2) [-1 1]
@@ -175,8 +176,8 @@ int main(void)
 	  HAL_TIM_Base_Stop_IT(&htim2);
   }
 
-  int carno = 0;
-  struct CarData* car = &cardata[carno];  // car data in use
+  int carno = -1;
+  struct CarData* car;// = &cardata[carno];  // car data in use
 
   if (inputmode == GPIO) {
 	  invstate = INVON;
@@ -204,18 +205,26 @@ int main(void)
 		rxbuf[i] = USART2_RX_Read();
 		i++;
 	}
+	HAL_UART_Transmit(&huart2, (uint8_t*)rxbuf, i, UARTTIMEOUT);
+
 	// when receive "invoff"
 	if (!strncmp(rxbuf, "invoff", 6)) {
+		HAL_UART_Transmit(&huart2, (uint8_t*)rxbuf, i, UARTTIMEOUT);
 		inv_reset();
 	}
 	// when receive "carno=%d", change car only when the inverter is off
 	else if (!strncmp(rxbuf, "carno=", 6)) {
+		HAL_UART_Transmit(&huart2, (uint8_t*)rxbuf, i, UARTTIMEOUT);
 		if (invstate == INVOFF) {
+			HAL_UART_Transmit(&huart2, (uint8_t*)rxbuf, i, UARTTIMEOUT);
 			sscanf(rxbuf, "carno=%d", &carno);
 			if (carno < NUMOFCAR) {
+				HAL_UART_Transmit(&huart2, (uint8_t*)rxbuf, i, UARTTIMEOUT);
 				car = &cardata[carno];
 				decode_pulsemode(car->pattern);
 				invstate = INVON;
+			} else {
+				carno = -1;
 			}
 		}
 	}
@@ -262,11 +271,11 @@ int main(void)
 		}
 	}
 
-	HAL_Delay(100);
+	HAL_Delay(50);
 
 	// send data to serial
 	Iac = 0.0;
-	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"Iac\":%f, \"notch\":%d, \"carno\":%d, \"mode\":%d, \"invstate\":%d}\n",speed,fs,omega_ref/2/PI,Vs,pulsemode,fc0,Vdc,Iac,(int)notch,carno,(int)mode,(int)invstate);
+	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"frand\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"Imm\":%f, \"notch\":%d, \"carno\":%d, \"mode\":%d, \"invstate\":%d, \"pedal\":%d}\n",speed,fs,frand,Vs,pulsemode,fc0,Vdc,Iac,(int)notch,carno,(int)mode,(int)invstate,0);
 	//sprintf(txbuf, "\"sector\":%d\n", sector);
 	//sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f,}\n", speed,fs,omega_ref/2/PI,Vs*100);
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);

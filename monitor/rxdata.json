@@ -5,12 +5,11 @@
   "pulsemode":7,
   "fc":199.5,
   "frand":0.0,
-  "soc":80,
   "Vdc":38.4,
-  "Iac":2.5,
-  "Tw":15,
-  "Th":40,
-  "power":true,
-  "pedal":true,
-  "trouble":false
+  "Imm":2.5,
+  "notch":9,
+  "carno":0,
+  "mode":0,
+  "invstate":1,
+  "pedal":0
 }

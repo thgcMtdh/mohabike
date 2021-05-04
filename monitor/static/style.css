@@ -24,13 +24,40 @@ html,body {
 
 /*ボタンの有効/無効およびON時*/
 button {
-
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: #EEEEDD;
+    border-top: 2px solid #FFFFEE;
+    border-left: 2px solid #FFFFEE;
+    border-bottom: 2px solid #CCCCAA;
+    border-right: 2px solid #CCCCAA;
+    color: black;
+    margin: 2px;
 }
 button:disabled {
-
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: lightgrey;
+    border-top: 2px solid lightgrey;
+    border-left: 2px solid lightgrey;
+    border-bottom: 2px solid lightgrey;
+    border-right: 2px solid lightgrey;
+    color: gray;
+    margin: 2px;
 }
 .btn_on {
-
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: #4040E0;
+    border-top: 2px solid #2020A0;
+    border-left: 2px solid #2020A0;
+    border-bottom: 2px solid #8080F0;
+    border-right: 2px solid #8080F0;
+    color: white;
+    margin: 2px;
 }
 
 /* 色 */
@@ -188,7 +215,7 @@ button:disabled {
     height: 98%;
     margin: 2%;
     display: grid;  /*carcard内の要素はグリッドレイアウトで配置*/
-    grid-template-rows: 5fr 1fr 4fr 1fr;  /*写真-名前-説明-ボタン*/
+    grid-template-rows: 4.5fr 1fr 4fr 1fr;  /*写真-名前-説明-ボタン*/
 }
 #selectcars .carcard .carimg {
     grid-row: 1;
@@ -198,16 +225,16 @@ button:disabled {
     grid-row: 2;
     width: 100%;
     font-size: 85%;
+    padding: 3px;
 }
 #selectcars .carcard .cardescription {
     grid-row: 3;
     width: 100%;
-    font-size: 80%;
+    font-size: 75%;
+    padding: 3px;
 }
 #selectcars .carcard .carpicker {
     grid-row: 4;
-    height: 100%;
-    width: 100%;
 }
 
 #footer {
@@ -216,9 +243,11 @@ button:disabled {
     display: grid;  /*6分割のグリッドレイアウトを作成*/
     grid-template-columns: repeat(8, 1fr);
 }
+/*
 #footer button {  /*ボタン共通の書式*/
     height: 100%;
 }
+*/
 #footer #statusbutton {
     grid-column: 1;
 }
