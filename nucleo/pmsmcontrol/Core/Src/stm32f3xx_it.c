@@ -317,14 +317,14 @@ void ADC1_IRQHandler(void)
 				  Vq = 0.0;
 			  } else {
 				  Vd = 0.0;
-				  Vq = 0.04+omega_ref/890.0;
+				  Vq = (0.04+omega_ref/890.0)*0.33;
 			  }
 		  } else {
 			  // on other mode, calculate voltage according to current rotor speed omega_est.
 			  // thus, other mode is "torque control open loop"
 			  if (acc > 0) {
 				  Vd = 0.0;
-				  Vq = 0.04+omega_est/890.0;
+				  Vq = (0.04+omega_est/890.0)*0.33;
 			  } else {
 				  Vd = 0.0;
 				  Vq = 0.0;
@@ -337,7 +337,7 @@ void ADC1_IRQHandler(void)
 		  omega_est = omega_ref;  // forcedly decide omega and theta without any feedback
 		  theta_est += (uint32_t)(omega_est * CtrlPrd * 4294967296/2/PI);
 		  Vd = 0.0;
-		  Vq = omega_est/800.0;
+		  Vq = (omega_est/800.0)*0.33;
 	  }
 
 	  if (Vq>1.0) Vq = 1.0;
