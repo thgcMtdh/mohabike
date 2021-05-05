@@ -233,6 +233,9 @@ int main(void)
 	else if (!strncmp(rxbuf, "mode=", 5)) {
 		if (invstate == INVOFF) {
 			sscanf(rxbuf, "mode=%d", (int*)&mode);
+			if (carno > -1) {
+				invstate = INVON;
+			}
 		}
 	}
 	// when receive notch command

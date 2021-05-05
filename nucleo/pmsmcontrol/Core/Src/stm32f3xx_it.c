@@ -243,7 +243,7 @@ void ADC1_IRQHandler(void)
   volatile uint16_t adcU = ADC1 -> JDR1;
   volatile uint16_t adcV = ADC1 -> JDR2;
   volatile uint16_t adcDCV = ADC1 -> JDR3;
-  Vdc = 3.3 * adcDCV/4096 * 107.5/7.5;
+  Vdc = 1.1 * 3.3 * adcDCV/4096 * 107.5/7.5;
   Iac = adcU;//(3.3 * adcU/4096 - 2.5) * 20.0;
 
   // operate inverter
@@ -353,7 +353,11 @@ void ADC1_IRQHandler(void)
 
 	  // get target pulse mode
 	  int pmNo_ref, pulsemode_ref;
-	  get_pulsemodeNo(Vq, omega_ref/2/PI, &pmNo_ref, &pulsemode_ref);
+	  if (mode == DEMO) {
+		  get_pulsemodeNo(Vq, omega_ref/2/PI, &pmNo_ref, &pulsemode_ref);
+	  } else {
+		  get_pulsemodeNo(Vq, fs, &pmNo_ref, &pulsemode_ref);
+	  }
 
 	  int flagModeChanged = 0;
 	  // change pulse mode at sine zero cross on the top of carrier

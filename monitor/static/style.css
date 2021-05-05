@@ -39,11 +39,8 @@ button:disabled {
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-    background-color: lightgrey;
-    border-top: 2px solid lightgrey;
-    border-left: 2px solid lightgrey;
-    border-bottom: 2px solid lightgrey;
-    border-right: 2px solid lightgrey;
+    background-color: #B0B0B0;
+    border: 2px solid #B0B0B0;
     color: gray;
     margin: 2px;
 }
@@ -223,13 +220,11 @@ button:disabled {
 }
 #selectcars .carcard .carname {
     grid-row: 2;
-    width: 100%;
     font-size: 85%;
     padding: 3px;
 }
 #selectcars .carcard .cardescription {
     grid-row: 3;
-    width: 100%;
     font-size: 75%;
     padding: 3px;
 }
@@ -240,19 +235,32 @@ button:disabled {
 #footer {
     grid-row: 4;
     height: 100%;
-    display: grid;  /*6分割のグリッドレイアウトを作成*/
-    grid-template-columns: repeat(8, 1fr);
+    display: grid;  /*24分割のグリッドレイアウトを作成*/
+    grid-template-columns: repeat(24, 1fr);
 }
-/*
-#footer button {  /*ボタン共通の書式*/
-    height: 100%;
+#footer button {
+    font-size: 85%;
 }
-*/
 #footer #statusbutton {
-    grid-column: 1;
+    grid-column: 1/3;
 }
 #footer #carselectbutton {
-    grid-column: 2;
+    grid-column: 3/5;
+}
+#footer #demobutton {
+    grid-column: 6/9;
+}
+#footer #actualbutton {
+    grid-column: 9/12;
+}
+#footer #notchPbutton {
+    grid-column: 13;
+}
+#footer #notchNbutton {
+    grid-column: 14;
+}
+#footer #notchBbutton {
+    grid-column: 15;
 }
 
 

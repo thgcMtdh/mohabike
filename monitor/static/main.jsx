@@ -5,13 +5,13 @@ const lampTextList = {
     regen:'回生',
     battLB:'バッテリ低電圧',
     comfailed:'通信異常',
+    communicating:'通信中',
     demo:'デモ'
 };
 const interval = 100;  // 情報を取得する時間間隔[ms]
 const PI = 3.141592653589;
-const pp = 16;          // 極対数
-const gear = 8.0;       // ギア比
-const r = 27*0.0254/2;  // 車輪半径
+const gear = 112.6533;       // ギア比
+const r = 26*0.0254/2;  // 車輪半径
 
 class App extends React.Component {
     constructor(props) {
@@ -21,6 +21,7 @@ class App extends React.Component {
         this.state = {
             info: null,  // インバータの動作状態(マイコン→HTML)
             comfailed: false,  // 通信に失敗した際trueになるフラグ
+            communicating: false,   // commandを送り、返信待ちのときtrue
             cardata: null,  // 車両一覧のデータ
             carname: '車両を選択してください', // 現在選択している車両の名前
             maincontents: '主回路動作状況',  // モニタに表示しているコンテンツ
@@ -31,15 +32,16 @@ class App extends React.Component {
 
      // 車両データをサーバから取得し、stateを更新する関数
      getCarData() {
+        this.setState({communicating: true});
         fetch('/cardata')
         .then(res => res.json())
         .then(
             (result) => {
-                this.setState({cardata: result});
+                this.setState({cardata: result, communicating: false});
             },
             (error) => {
                 console.log(error);
-                this.setState({comfailed: true});
+                this.setState({comfailed: true, communicating: false});
             }
         );
     }
@@ -62,6 +64,7 @@ class App extends React.Component {
 
     // サーバに命令を送信する関数
     postCommand(command) {
+
         fetch('/command', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
@@ -86,6 +89,10 @@ class App extends React.Component {
                 this.setState({maincontents: '車両選択'}); break;
             case 'statusbutton':
                 this.setState({maincontents: '主回路動作状況'}); break;
+            case 'demobutton':
+                this.postCommand({mode: 0}); break;
+            case 'actualbutton':
+                this.postCommand({mode: 1}); break;
             case 'notchPbutton':
                 this.postCommand({notch: 'P'}); break;
             case 'notchNbutton':
@@ -120,7 +127,8 @@ class App extends React.Component {
         return (
             <div id="app">
                 <IndicatorArea info={this.state.info}
-                    comfailed={this.state.comfailed}/>
+                    comfailed={this.state.comfailed}
+                    communicating={this.state.communicating}/>
                 <MonitorArea info={this.state.info}
                     comfailed={this.state.comfailed}
                     carname={this.state.carname}
@@ -149,6 +157,8 @@ class IndicatorArea extends React.Component {
                 switch (keyname) {
                     case 'comfailed':
                         var is_on = false; break;
+                    case 'communicating':
+                        var is_on = this.props.communicating; break;
                     case 'demo': // demoランプは、デモモード時に点灯
                         var is_on = (this.props.info['mode'] == 0);  break;
                     case 'assist': // assistランプは、mode==EBIKE or ASSIST時に点灯
@@ -177,6 +187,7 @@ class IndicatorArea extends React.Component {
                 {this.renderLamp('regen', 'indicator_orange')}
                 {this.renderLamp('battLB', 'indicator_orange')}
                 {this.renderLamp('comfailed', 'indicator_red')}
+                {this.renderLamp('communicating', 'indicator_orange')}
                 {this.renderLamp('demo', 'indicator_orange')}
             </div>
         )
@@ -286,12 +297,12 @@ class OperationStatus extends React.Component {
             var pulsemode = '--';
         } else {
             var soc = '--'; //Math.round(this.props.info['soc']);
-            var Vdc = Math.round(this.props.info['Vdc']*10)/10;
-            var fs = Math.round(this.props.info['fs']*10)/10;
+            var Vdc = (Math.round(this.props.info['Vdc']*10)/10).toFixed(1);
+            var fs = (Math.round(this.props.info['fs']*10)/10).toFixed(1);
             var Vs = Math.round(this.props.info['Vs']*100);
             var fc = Math.round(this.props.info['fc']);
             var frand = Math.round(this.props.info['frand']);
-            var rpm = '--'; //Math.round(fw*60*10)/10;
+            var rpm = Math.round(fs/gear*60);
             var Pw = '--'; //Math.round(Tw*2*PI*fw*10)/10;
             var pulsemode = this.props.info['pulsemode'];
             if (pulsemode == 0) {
@@ -403,15 +414,23 @@ class Footer extends React.Component {
     render() {
         var status_class = (this.props.maincontents == '主回路動作状況')? "btn_on":"btn_off";
         var carselect_class = (this.props.maincontents == '車両選択')? "btn_on":"btn_off";
-        var disabled = "";
+        var notch_disabled = "disabled";
+        var mode_disabled = "disabled";
         if (this.props.info) {
-            if (this.props.info.carno == -1) {  // 車両が選択されていないときはノッチを無効か
-                disabled = "disabled";
+            if (this.props.info.carno > -1) {  // 車両が選択されているときに限りノッチを有効化
+                notch_disabled = "";
             }
+            if (this.props.info.speed == 0) {  // 停止中に限りモード切替を有効化
+                mode_disabled = "";
+            }
+            var demo_class = (this.props.info.mode == 0)? "btn_on":"btn_off";
+            var actual_class = (this.props.info.mode > 0)? "btn_on":"btn_off"
             var notchP_class = (this.props.info.notch > 9)? "btn_on":"btn_off";
             var notchN_class = (this.props.info.notch == 9)? "btn_on":"btn_off";
             var notchB_class = (this.props.info.notch < 9)? "btn_on":"btn_off";
         } else {
+            var demo_class = "";
+            var actual_class = "";
             var notchP_class = "";
             var notchN_class = "btn_on";
             var notchB_class = "";
@@ -420,9 +439,11 @@ class Footer extends React.Component {
             <div id="footer" className="bg_light">
                <button id="statusbutton" className={status_class} onClick={this.handleClick}>動作状況</button>
                <button id="carselectbutton" className={carselect_class} onClick={this.handleClick}>車両選択</button>
-               <button disabled={disabled} id="notchPbutton" className={notchP_class} onClick={this.handleClick}>P</button>
-               <button disabled={disabled} id="notchNbutton" className={notchN_class} onClick={this.handleClick}>N</button>
-               <button disabled={disabled} id="notchBbutton" className={notchB_class} onClick={this.handleClick}>B</button>
+               <button disabled={mode_disabled} id="demobutton" className={demo_class} onClick={this.handleClick}>無負荷実演</button>
+               <button disabled={mode_disabled} id="actualbutton" className={actual_class} onClick={this.handleClick}>実路面走行</button>
+               <button disabled={notch_disabled} id="notchPbutton" className={notchP_class} onClick={this.handleClick}>P</button>
+               <button disabled={notch_disabled} id="notchNbutton" className={notchN_class} onClick={this.handleClick}>N</button>
+               <button disabled={notch_disabled} id="notchBbutton" className={notchB_class} onClick={this.handleClick}>B</button>
             </div>
         )
     }

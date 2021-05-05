@@ -8,7 +8,7 @@
   "Vdc":38.4,
   "Imm":2.5,
   "notch":9,
-  "carno":0,
+  "carno":-1,
   "mode":0,
   "invstate":1,
   "pedal":0

@@ -4,7 +4,7 @@ import threading
 import responder
 
 # 環境によって書き換える変数
-isMCUConnected = True             # マイコンがUSBポートに接続されているか
+isMCUConnected = True          # マイコンがUSBポートに接続されているか
 SERIALPATH_RASPI = '/dev/ttyACM0'  # ラズパイのシリアルポート
 SERIALPATH_WIN = 'COM16'           # Windowsのシリアルポート
 
@@ -157,8 +157,13 @@ def main():
             time.sleep(0.5)
             while serialcom.rxdata['invstate'] == 1:
                 time.sleep(0.1)
-            print(data['carno'])
-            print(serialcom.send(f"carno={data['carno']}\n"))
+            serialcom.send(f"carno={data['carno']}\n")
+        if 'mode' in data:
+            serialcom.send("invoff\n")
+            time.sleep(0.5)
+            while serialcom.rxdata['invstate'] == 1:
+                time.sleep(0.1)
+            serialcom.send(f"mode={data['mode']}\n")
         if 'notch' in data:
             if data['notch'] == 'P':
                 serialcom.send("P\n")
