@@ -262,7 +262,19 @@ button:disabled {
 #footer #notchBbutton {
     grid-column: 15;
 }
-
+#footer #stopbutton {
+    grid-column: 16/18;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: #C00000;
+    border-top: 2px solid #E04040;
+    border-left: 2px solid #E04040;
+    border-bottom: 2px solid #A00000;
+    border-right: 2px solid #A00000;
+    color: white;
+    margin: 2px;
+}
 
 .infoelement {
     display: flex;  /*子要素を横並びにする*/

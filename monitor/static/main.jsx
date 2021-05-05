@@ -99,6 +99,8 @@ class App extends React.Component {
                 this.postCommand({notch: 'N'}); break;
             case 'notchBbutton':
                 this.postCommand({notch: 'B'}); break;
+            case 'stopbutton':
+                this.postCommand({invoff: 1}); break;
             default:
                 break;
         }
@@ -444,6 +446,7 @@ class Footer extends React.Component {
                <button disabled={notch_disabled} id="notchPbutton" className={notchP_class} onClick={this.handleClick}>P</button>
                <button disabled={notch_disabled} id="notchNbutton" className={notchN_class} onClick={this.handleClick}>N</button>
                <button disabled={notch_disabled} id="notchBbutton" className={notchB_class} onClick={this.handleClick}>B</button>
+               <button id="stopbutton" onClick={this.handleClick}>停止</button>
             </div>
         )
     }

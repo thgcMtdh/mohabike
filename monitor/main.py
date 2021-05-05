@@ -173,6 +173,8 @@ def main():
                 serialcom.send("B\n")
             else:
                 serialcom.send(f"notch={data['notch']}\n")
+        if 'invoff' in data:
+            serialcom.send("invoff\n")
 
     @api.route("/")
     def hello_html(req,resp):
