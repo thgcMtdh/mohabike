@@ -56,7 +56,7 @@ volatile enum Mode mode = DEMO;
 volatile enum HallState hallstate = STOP;
 volatile enum InvState invstate = INVOFF;
 const enum InputMode inputmode = SERIAL;
-const enum CtrlMode ctrlmode = SPEAKER;
+const enum CtrlMode ctrlmode = HALL;
 
 volatile uint32_t start = 0;  // for process time measurement
 volatile uint32_t stop = 0;   // for process time measurement
@@ -218,12 +218,13 @@ int main(void)
 		if (invstate == INVOFF) {
 			HAL_UART_Transmit(&huart2, (uint8_t*)rxbuf, i, UARTTIMEOUT);
 			sscanf(rxbuf, "carno=%d", &carno);
-			if (carno < NUMOFCAR) {
+			if (carno > -1 && carno < NUMOFCAR) {
 				HAL_UART_Transmit(&huart2, (uint8_t*)rxbuf, i, UARTTIMEOUT);
 				car = &cardata[carno];
 				decode_pulsemode(car->pattern);
 				invstate = INVON;
-			} else {
+			} else {  // if carno is invalid, turn off inverter
+				invstate = INVOFF;
 				carno = -1;
 			}
 		}
@@ -253,21 +254,23 @@ int main(void)
 	}
 
 	// apply notch
-	if (inputmode == SERIAL) {
-		if (notch > N) {  // P
-			acc = car->acc0*(notch-N)/(P5-N)/3.6/car->rwheel*car->gr*car->pp;
-		} else if (EB < notch) {
-			acc = car->brk0*(notch-N)/(B8-N)/3.6/car->rwheel*car->gr*car->pp;
-		} else {
-			acc = car->eb0/3.6/car->rwheel*car->gr*car->pp;
-		}
-	} else if (inputmode == GPIO) {
-		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8)) {
-			notch = P5;
-			acc = car->acc0/3.6/car->rwheel*car->gr*car->pp;
-		} else {
-			notch = B8;
-			acc = car->brk0/3.6/car->rwheel*car->gr*car->pp;
+	if (carno > -1) {
+		if (inputmode == SERIAL) {
+			if (notch > N) {  // P
+				acc = car->acc0*(notch-N)/(P5-N)/3.6/car->rwheel*car->gr*car->pp;
+			} else if (EB < notch) {
+				acc = car->brk0*(notch-N)/(B8-N)/3.6/car->rwheel*car->gr*car->pp;
+			} else {
+				acc = car->eb0/3.6/car->rwheel*car->gr*car->pp;
+			}
+		} else if (inputmode == GPIO) {
+			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8)) {
+				notch = P5;
+				acc = car->acc0/3.6/car->rwheel*car->gr*car->pp;
+			} else {
+				notch = B8;
+				acc = car->brk0/3.6/car->rwheel*car->gr*car->pp;
+			}
 		}
 	}
 

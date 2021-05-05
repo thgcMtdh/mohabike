@@ -290,6 +290,13 @@ void ADC1_IRQHandler(void)
 				  if (TIM2->CNT > dtMAX) hallstate = STOP;  // if omega is too slow, regard rotor as stopped
 				  break;
 			  }
+		  } else {
+			  switch (hallstate) {
+			  case HALL1:
+			  case HALLSTEADY:
+				  if (TIM2->CNT > dtMAX) hallstate = STOP;  // if omega is too slow, regard rotor as stopped
+				  break;
+			  }
 		  }
 
 		  // estimate rotor position
@@ -302,20 +309,35 @@ void ADC1_IRQHandler(void)
 		  }
 
 		  // compute voltage command
-		  if (hallstate == STOP || omega_ref < 0.1) {
-			  Vd = 0.0;
-			  Vq = 0.0;
+		  if (mode == DEMO) {
+			  // on demo mode, calculate voltage in order to meet speed command omega_ref given by notch.
+			  // thus, demo mode is "speed control open loop"
+			  if (hallstate == STOP || omega_ref < 0.1) {
+				  Vd = 0.0;
+				  Vq = 0.0;
+			  } else {
+				  Vd = 0.0;
+				  Vq = 0.04+omega_ref/890.0;
+			  }
 		  } else {
-			  Vd = 0.0;
-			  Vq = 0.04+omega_ref/890.0;
+			  // on other mode, calculate voltage according to current rotor speed omega_est.
+			  // thus, other mode is "torque control open loop"
+			  if (acc > 0) {
+				  Vd = 0.0;
+				  Vq = 0.04+omega_est/890.0;
+			  } else {
+				  Vd = 0.0;
+				  Vq = 0.0;
+			  }
 		  }
+
 
 	  // forced operation
 	  } else if (ctrlmode == SPEAKER) {
 		  omega_est = omega_ref;  // forcedly decide omega and theta without any feedback
 		  theta_est += (uint32_t)(omega_est * CtrlPrd * 4294967296/2/PI);
 		  Vd = 0.0;
-		  Vq = omega_est/600.0;
+		  Vq = omega_est/800.0;
 	  }
 
 	  if (Vq>1.0) Vq = 1.0;
@@ -364,7 +386,13 @@ void ADC1_IRQHandler(void)
 		  }
 	  }
 
-	  calc_fc(pmNo, omega_ref/2/PI, &pulsemode, &fc, &fc0);
+	  if (mode == DEMO) {
+		  // on demo mode, calculate carrer frequency according to omega_ref (NOT omega_est) in order to generate fine sound
+		  calc_fc(pmNo, omega_ref/2/PI, &pulsemode, &fc, &fc0);
+	  } else {
+		  calc_fc(pmNo, fs, &pulsemode, &fc, &fc0);
+	  }
+
 
 	  // PWM
 	  async_pwm();
@@ -408,6 +436,13 @@ void TIM2_IRQHandler(void)
 	  if (mode == DEMO) {
 		  switch(hallstate) {
 		  case SELFSTART:
+			  hallstate = HALL1; break;
+		  case HALL1:
+			  hallstate = HALLSTEADY; break;
+		  }
+	  } else {
+		  switch(hallstate) {
+		  case STOP:
 			  hallstate = HALL1; break;
 		  case HALL1:
 			  hallstate = HALLSTEADY; break;
