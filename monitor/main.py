@@ -9,9 +9,9 @@ SERIALPATH_RASPI = '/dev/ttyACM0'  # ラズパイのシリアルポート
 SERIALPATH_WIN = 'COM16'           # Windowsのシリアルポート
 
 # 各種定数
-PIN_SERVO1 = 12  # PWM0 Pin
-PIN_SERVO2 = 13  # PWM1 Pin
-PIN_LED = 25     # LED Pin
+PIN_SERVO1 = 12  # GPIO12 PWM0 Pin
+PIN_SERVO2 = 13  # GPIO13 PWM1 Pin
+PIN_LED = 16     # GPIO25 LED Pin
 SERVO_MIN = 26000   # サーボの最小duty
 SERVO_MAX = 115000  # サーボの最大duty
 SPEED_MAX = 30  # 速度の最大値 [km/h]
@@ -34,11 +34,11 @@ class Meters():
             if kmh != None:
                 kmh = SPEED_MAX if (kmh > SPEED_MAX) else kmh  # constrain upbound and lowbound
                 kmh = 0         if (kmh < 0)         else kmh
-                self.pi.hardware_PWM(PIN_SERVO1, 50, SERVO_MIN + kmh/SPEED_MAX * (SERVO_MAX - SERVO_MIN))  # 速度計
+                self.pi.hardware_PWM(PIN_SERVO1, 50, int(SERVO_MIN + kmh/SPEED_MAX * (SERVO_MAX - SERVO_MIN)))  # 速度計
             if amp != None:
                 amp =  IMM_MAX if (amp > IMM_MAX)  else amp
                 amp = -IMM_MAX if (amp < -IMM_MAX) else amp
-                self.pi.hardware_PWM(PIN_SERVO2, 50, SERVO_MIN + 0.5*(1 + amp/IMM_MAX) * (SERVO_MAX - SERVO_MIN))  # 電流計
+                self.pi.hardware_PWM(PIN_SERVO2, 50, int(SERVO_MIN + 0.5*(1 + amp/IMM_MAX) * (SERVO_MAX - SERVO_MIN)))  # 電流計
             if led != None:
                 self.pi.write(PIN_LED, led)
 
@@ -83,7 +83,7 @@ class SerialCom():
                     self.rxdata = json.loads(rxbuf)  # JSON形式へデコード
                     self.rxdata['serialfailed'] = 0
                     if self.METERS:  # メーターに表示
-                        self.METERS.indicate(self.rxdata['speed'], self.rxdata['Imm'], 1)
+                        self.METERS.indicate(self.rxdata['speed'], self.rxdata['Imm'], self.rxdata['invstate'])
                 except json.decoder.JSONDecodeError:
                     print("[serialcom.recieve_loop] when decoding, error has occured")
                     self.rxdata['serialfailed'] = 1
