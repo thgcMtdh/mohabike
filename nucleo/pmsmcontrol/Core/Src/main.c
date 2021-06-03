@@ -56,7 +56,7 @@ volatile enum Mode mode = DEMO;
 volatile enum HallState hallstate = STOP;
 volatile enum InvState invstate = INVOFF;
 const enum InputMode inputmode = SERIAL;
-const enum CtrlMode ctrlmode = HALL;
+const enum CtrlMode ctrlmode = SPEAKER;
 
 volatile uint32_t start = 0;  // for process time measurement
 volatile uint32_t stop = 0;   // for process time measurement
@@ -165,16 +165,16 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
-//  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
-//  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
-//  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
-  if (ctrlmode == HALL) {
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
+//  if (ctrlmode == HALL) {
 	  HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_1);  // hall sensor input capture
 	  HAL_TIM_Base_Start_IT(&htim2);            // hall sensor transition interrupt
-  } else {
-	  HAL_TIM_IC_Stop(&htim2, TIM_CHANNEL_1);
-	  HAL_TIM_Base_Stop_IT(&htim2);
-  }
+//  } else {
+//	  HAL_TIM_IC_Stop(&htim2, TIM_CHANNEL_1);
+//	  HAL_TIM_Base_Stop_IT(&htim2);
+//  }
 
   int carno = -1;
   struct CarData* car;// = &cardata[carno];  // car data in use
@@ -281,8 +281,8 @@ int main(void)
 
 	// send data to serial
 	Iac = 0.0;
-	sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"frand\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"Imm\":%f, \"notch\":%d, \"carno\":%d, \"mode\":%d, \"invstate\":%d, \"pedal\":%d}\n",speed,fs,frand,Vs,pulsemode,fc0,Vdc,Iac,(int)notch,carno,(int)mode,(int)invstate,0);
-	//sprintf(txbuf, "\"sector\":%d\n", sector);
+	//sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"frand\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"Imm\":%f, \"notch\":%d, \"carno\":%d, \"mode\":%d, \"invstate\":%d, \"pedal\":%d}\n",speed,fs,frand,Vs,pulsemode,fc0,Vdc,Iac,(int)notch,carno,(int)mode,(int)invstate,0);
+	sprintf(txbuf, "\"omega_ref\":%f, \"omega_est\":%f, \"fc\":%f\n", omega_ref, omega_est, fc);
 	//sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f,}\n", speed,fs,omega_ref/2/PI,Vs*100);
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);
 
@@ -488,7 +488,7 @@ static void MX_TIM1_Init(void)
   sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
   sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_ENABLE;
   sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
-  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.DeadTime = 16;
   sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
   sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_LOW;
   sBreakDeadTimeConfig.BreakFilter = 0;
@@ -543,7 +543,7 @@ static void MX_TIM2_Init(void)
   }
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 14;
+  sConfig.IC1Filter = 15;
   sConfig.Commutation_Delay = 0;
   if (HAL_TIMEx_HallSensor_Init(&htim2, &sConfig) != HAL_OK)
   {

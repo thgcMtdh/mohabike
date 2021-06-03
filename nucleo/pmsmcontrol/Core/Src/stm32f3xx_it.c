@@ -334,10 +334,9 @@ void ADC1_IRQHandler(void)
 
 	  // forced operation
 	  } else if (ctrlmode == SPEAKER) {
-		  omega_est = omega_ref;  // forcedly decide omega and theta without any feedback
-		  theta_est += (uint32_t)(omega_est * CtrlPrd * 4294967296/2/PI);
+		  theta_est += (uint32_t)(omega_ref * CtrlPrd * 4294967296/2/PI);  // forcedly decide omega and theta without any feedback
 		  Vd = 0.0;
-		  Vq = (omega_est/800.0)*0.33;
+		  Vq = (0.04+omega_ref/890.0);
 	  }
 
 	  if (Vq>1.0) Vq = 1.0;
@@ -426,15 +425,16 @@ void TIM2_IRQHandler(void)
   uint32_t capturedvalue = TIM2->CCR1;
   uint32_t capturedsum = 0;
 
-  if (capturedvalue > 8192) {  // avoid zero division and chattering
-	  TIM2CCRvals[i_dt] = capturedvalue;  // put new value to array
-	  i_dt++;
-	  if (i_dt > dtSAMPLENUM-1) i_dt = 0;
-	  // calculate average
-	  for (int i=0; i<dtSAMPLENUM; i++) {
-	  	  capturedsum += TIM2CCRvals[i];
-	  }
-	  omega_est = (float)FCLK/6/capturedsum*dtSAMPLENUM * 2*PI;
+  if (capturedvalue > 30000) {  // avoid zero division and chattering
+//	  TIM2CCRvals[i_dt] = capturedvalue;  // put new value to array
+//	  i_dt++;
+//	  if (i_dt > dtSAMPLENUM-1) i_dt = 0;
+//	  // calculate average
+//	  for (int i=0; i<dtSAMPLENUM; i++) {
+//	  	  capturedsum += TIM2CCRvals[i];
+//	  }
+//	  omega_est = (float)FCLK/6/capturedsum*dtSAMPLENUM * 2*PI;
+	  omega_est = (float)FCLK/6/capturedvalue * 2*PI;
 
 	  // update hallstate
 	  if (mode == DEMO) {
