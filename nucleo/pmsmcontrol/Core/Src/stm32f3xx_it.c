@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #define ARM_MATH_CM4
+#include "stdlib.h"
 #include "arm_math.h"
 #include "arm_const_structs.h"
 /* USER CODE END Includes */
@@ -50,6 +51,11 @@ const int16_t asintable[257] = {-32768,-30159,-29076,-28243,-27540,-26919,-26356
 int timCounter;  // for sync mode
 uint32_t TIM2CCRvals[dtSAMPLENUM] = {429496729, 429496729, 429496729, 429496729, 429496729};  // to calculate average fs. smaller than LONGMAX/SAMPLENUM
 int i_dt = 0;
+
+volatile uint16_t adcDCV = 0;
+volatile uint16_t adcIU = 0;
+volatile uint16_t adcIW = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,6 +69,7 @@ void get_pulsemodeNo(float, float, int*, int*);
 void calc_fc(int, float, int*, float*, float*);
 float newton_downslope(float, float, float, uint32_t);
 float newton_upslope(float, float, float, uint32_t);
+int compare_int(const void *a, const void *b);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -240,11 +247,11 @@ void ADC1_IRQHandler(void)
   /* USER CODE END ADC1_IRQn 0 */
   HAL_ADC_IRQHandler(&hadc1);
   /* USER CODE BEGIN ADC1_IRQn 1 */
-  volatile uint16_t adcU = ADC1 -> JDR1;
-  volatile uint16_t adcV = ADC1 -> JDR2;
-  volatile uint16_t adcDCV = ADC1 -> JDR3;
-  Vdc = 1.1 * 3.3 * adcDCV/4096 * 107.5/7.5;
-  Iac = adcU;//(3.3 * adcU/4096 - 2.5) * 20.0;
+  adcDCV = ADC1 -> JDR1;
+  adcIU = ADC1 -> JDR2;
+  adcIW = ADC1 -> JDR3;
+  Vdc = 3.3 * adcDCV/4096 * 10.82/0.82;
+  Iac = 3.3 * adcIU/4096;//(3.3 * adcIU/4096 - 2.5) * 20.0;
 
   // operate inverter
   if (invstate == INVON) {
@@ -425,16 +432,24 @@ void TIM2_IRQHandler(void)
   uint32_t capturedvalue = TIM2->CCR1;
   uint32_t capturedsum = 0;
 
-  if (capturedvalue > 30000) {  // avoid zero division and chattering
-//	  TIM2CCRvals[i_dt] = capturedvalue;  // put new value to array
-//	  i_dt++;
-//	  if (i_dt > dtSAMPLENUM-1) i_dt = 0;
+  if (capturedvalue > 15000) {  // avoid zero division and chattering
+	  TIM2CCRvals[i_dt] = capturedvalue;  // put new value to array
+	  i_dt++;
+	  if (i_dt > dtSAMPLENUM-1) i_dt = 0;
 //	  // calculate average
 //	  for (int i=0; i<dtSAMPLENUM; i++) {
 //	  	  capturedsum += TIM2CCRvals[i];
 //	  }
 //	  omega_est = (float)FCLK/6/capturedsum*dtSAMPLENUM * 2*PI;
-	  omega_est = (float)FCLK/6/capturedvalue * 2*PI;
+
+	  // calculate median
+	  uint32_t valuesorted[dtSAMPLENUM];
+	  memcpy(valuesorted, TIM2CCRvals, sizeof(uint32_t)*dtSAMPLENUM);
+	  qsort(valuesorted, dtSAMPLENUM, sizeof(uint32_t), compare_int);
+	  omega_est = (float)FCLK/6/valuesorted[dtSAMPLENUM/2+1] * 2*PI;
+
+
+//	  omega_est = (float)FCLK/6/capturedvalue * 2*PI;
 
 	  // update hallstate
 	  if (mode == DEMO) {
@@ -649,6 +664,10 @@ float newton_upslope(float Vs_in, float omega_in, float fc_in, uint32_t theta_in
 		y = 4*fc_in*t - 1;
 	}
 	return y;
+}
+
+int compare_int(const void *a, const void *b) {
+	return *(int*)a - *(int*)b;
 }
 
 /* USER CODE END 1 */

@@ -277,13 +277,15 @@ int main(void)
 		}
 	}
 
-	HAL_Delay(50);
+	//HAL_Delay(50);
 
 	// send data to serial
-	Iac = 0.0;
+	//Iac = 0.0;
 	//sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"frand\":%f, \"Vs\":%f, \"pulsemode\":%d, \"fc\":%f, \"Vdc\":%f, \"Imm\":%f, \"notch\":%d, \"carno\":%d, \"mode\":%d, \"invstate\":%d, \"pedal\":%d}\n",speed,fs,frand,Vs,pulsemode,fc0,Vdc,Iac,(int)notch,carno,(int)mode,(int)invstate,0);
-	sprintf(txbuf, "\"omega_ref\":%f, \"omega_est\":%f, \"fc\":%f\n", omega_ref, omega_est, fc);
-	//sprintf(txbuf, "{\"speed\":%f, \"fs\":%f, \"fs_ref\":%f, \"Vs\":%f,}\n", speed,fs,omega_ref/2/PI,Vs*100);
+	//sprintf(txbuf, "\"omega_ref\":%f, \"omega_est\":%f, \"fc\":%f\n", omega_ref, omega_est, fc);
+//	float Iu = 10.0/1.09515 * (ADC1->JDR2/4096.0*3.3-1.70475-0.042);
+//	float Iw = 10.0/1.09515 * (ADC1->JDR3/4096.0*3.3-1.70475-0.08);
+	sprintf(txbuf, "{\"Iu:%d, Iw:%d, Vbat:%d\n", ADC1->JDR2, ADC1->JDR3, (ADC1->JDR4));
 	HAL_UART_Transmit(&huart2, (uint8_t*)txbuf, strlen(txbuf), UARTTIMEOUT);
 
 
@@ -383,7 +385,7 @@ static void MX_ADC1_Init(void)
   sConfigInjected.InjectedChannel = ADC_CHANNEL_1;
   sConfigInjected.InjectedRank = ADC_INJECTED_RANK_1;
   sConfigInjected.InjectedSingleDiff = ADC_SINGLE_ENDED;
-  sConfigInjected.InjectedNbrOfConversion = 3;
+  sConfigInjected.InjectedNbrOfConversion = 4;
   sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_19CYCLES_5;
   sConfigInjected.ExternalTrigInjecConvEdge = ADC_EXTERNALTRIGINJECCONV_EDGE_RISING;
   sConfigInjected.ExternalTrigInjecConv = ADC_EXTERNALTRIGINJECCONV_T1_TRGO;
@@ -408,7 +410,14 @@ static void MX_ADC1_Init(void)
   */
   sConfigInjected.InjectedChannel = ADC_CHANNEL_5;
   sConfigInjected.InjectedRank = ADC_INJECTED_RANK_3;
-  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_7CYCLES_5;
+  if (HAL_ADCEx_InjectedConfigChannel(&hadc1, &sConfigInjected) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Injected Channel
+  */
+  sConfigInjected.InjectedChannel = ADC_CHANNEL_VBAT;
+  sConfigInjected.InjectedRank = ADC_INJECTED_RANK_4;
   if (HAL_ADCEx_InjectedConfigChannel(&hadc1, &sConfigInjected) != HAL_OK)
   {
     Error_Handler();
