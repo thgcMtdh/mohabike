@@ -28,7 +28,6 @@
 
 /* Private user code ---------------------------------------------------------*/
 
-
 /**
   * @brief description
   * @param None

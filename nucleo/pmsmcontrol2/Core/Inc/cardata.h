@@ -15,6 +15,7 @@
 
 #define D_CAR_MAXPM 13
 typedef struct {
+	int carid;
 	size_t N;      // the number of pulsemode
 	float fs[D_CAR_MAXPM];
 	int pm[D_CAR_MAXPM];
@@ -25,6 +26,7 @@ typedef struct {
 } PulseMode;
 
 typedef struct {
+	int carid;
 	float lost;    // regen lost frequency [Hz]
 	float acc0;    // starting acceleration [km/h/s]
 	float brk0;    // usual max break acceleration [km/h/s]

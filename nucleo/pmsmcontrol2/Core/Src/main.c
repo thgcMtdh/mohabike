@@ -22,7 +22,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32f3xx_hal.h"
 #include "cardata.h"
+#include "control.h"
+#include "serial.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +46,9 @@
 TIM_HandleTypeDef htim1;
 
 UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart3_rx;
 
 /* USER CODE BEGIN PV */
 
@@ -55,6 +60,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -95,17 +101,37 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM1_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  PulseMode pm;
-  CarParam param;
-  Cardata_getPulsemode(0, &pm);
-  Cardata_getCarparam(1, &param);
+
+  static PulseMode info_pm;
+  static CarParam info_param;
+  Cardata_getPulsemode(-1, &info_pm);    // initialize
+  Cardata_getCarparam(-1, &info_param);  // initialize
+
+  Ctrl_init(&htim1, &info_pm, &info_param);  // initialize
+  Serial_init(&huart2);
+
+  uint8_t rxbuf[SERIAL_RXBUFSIZE];
+  uint8_t txbuf[SERIAL_TXBUFSIZE];
+  for (int i=0; i<SERIAL_RXBUFSIZE; i++) rxbuf[i] = 0;
+  for (int i=0; i<SERIAL_TXBUFSIZE; i++) txbuf[i] = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  size_t i = 0;
+	  while (!Serial_isEmpty()) {
+		  rxbuf[i++] = (char)Serial_read();
+	  }
+	  rxbuf[i] = '\n';
+	  Serial_send(rxbuf, i+1, 1000);
+
+	  HAL_Delay(1000);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -282,6 +308,41 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -291,6 +352,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
   /* DMA1_Channel6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
@@ -309,6 +373,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
 }
 

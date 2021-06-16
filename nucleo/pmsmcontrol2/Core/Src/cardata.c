@@ -99,23 +99,28 @@ const CarData cardata[D_CAR_NUMOFCAR] = {
 /**
   * @brief Return pulsemode data .
   * @param id: car id (starting from zero), dest: pointer of the destination to store pulsemode
+  *        When declared PulseMode, please initialize it by calling this function and set id=-1.
   * @retval 0:success, -1:error
   */
 int Cardata_getPulsemode(int id, PulseMode* dest) {
-	if (id >= D_CAR_NUMOFCAR) {
-		return -1;
+	if (id >= D_CAR_NUMOFCAR || id < 0) {
+		dest->carid = -1;
+		return 0;
 	}
+
 	size_t N = cardata[id].N;
 	dest->N = N;
+
 	// copy pulse mode pattern
 	for (int i=0; i<D_CAR_MAXPM; i++) {
 		if (i < N) {
-			dest->fs[i] = cardata[id].pmpattern[i].fs;
-			dest->pm[i] = cardata[id].pmpattern[i].pm;
-			dest->fc1[i] = cardata[id].pmpattern[i].fc1;
-			dest->fc2[i] = cardata[id].pmpattern[i].fc2;
-			dest->frand1[i] = cardata[id].pmpattern[i].frand1;
-			dest->frand2[i] = cardata[id].pmpattern[i].frand2;
+			const PmElement* pm_i = &cardata[id].pmpattern[i];  // element i
+			dest->fs[i] = pm_i->fs;
+			dest->pm[i] = pm_i->pm;
+			dest->fc1[i] = pm_i->fc1;
+			dest->fc2[i] = pm_i->fc2;
+			dest->frand1[i] = pm_i->frand1;
+			dest->frand2[i] = pm_i->frand2;
 		} else {
 			dest->fs[i] = 0.0;
 			dest->pm[i] = 0;
@@ -131,12 +136,15 @@ int Cardata_getPulsemode(int id, PulseMode* dest) {
 /**
   * @brief Return car parameters.
   * @param id: car id (starting from zero), dest: pointer of the destination to store car params
+  *            When declared CarParam, please initialize it by calling this function and set id=-1.
   * @retval 0:success, -1:error
   */
 int Cardata_getCarparam(int id, CarParam* dest) {
-	if (id >= D_CAR_NUMOFCAR) {
-		return -1;
+	if (id >= D_CAR_NUMOFCAR || id < 0) {
+		dest->carid = -1;
+		return 0;
 	}
+	dest->carid = id;
 	dest->acc0 = cardata[id].acc0;
 	dest->brk0 = cardata[id].brk0;
 	dest->eb0 = cardata[id].eb0;
