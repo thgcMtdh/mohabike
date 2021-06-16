@@ -37,6 +37,7 @@ typedef struct {
 } CarParam;
 
 /* Exported constants --------------------------------------------------------*/
+#define D_CAR_NUMOFCAR 4
 
 /* Exported macro ------------------------------------------------------------*/
 

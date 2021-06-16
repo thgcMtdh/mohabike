@@ -42,11 +42,11 @@ typedef struct {  // a Set of pulse mode pattern
 /* Private define ------------------------------------------------------------*/
 
 /* Private macro -------------------------------------------------------------*/
-#define D_CAR_NUMOFCAR 4
 
 /* Private variables ---------------------------------------------------------*/
 
 /* ========= DEFINITION OF CAR PULSEMODE ==========*/
+// If you change the number of cars, please update D_CAR_NUMOFCAR in "cardata.h"!
 
 const PmElement tobu100[] = {
 	{0.0,	0,	200,200,0,0},

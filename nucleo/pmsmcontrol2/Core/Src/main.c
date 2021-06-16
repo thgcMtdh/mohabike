@@ -51,6 +51,8 @@ DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart3_rx;
 
 /* USER CODE BEGIN PV */
+static PulseMode info_pm;
+static CarParam info_param;
 
 /* USER CODE END PV */
 
@@ -104,8 +106,6 @@ int main(void)
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  static PulseMode info_pm;
-  static CarParam info_param;
   Cardata_getPulsemode(-1, &info_pm);    // initialize
   Cardata_getCarparam(-1, &info_param);  // initialize
 
@@ -113,9 +113,9 @@ int main(void)
   Serial_init(&huart2);
 
   uint8_t rxbuf[SERIAL_RXBUFSIZE];
-  uint8_t txbuf[SERIAL_TXBUFSIZE];
+  //uint8_t txbuf[SERIAL_TXBUFSIZE];
   for (int i=0; i<SERIAL_RXBUFSIZE; i++) rxbuf[i] = 0;
-  for (int i=0; i<SERIAL_TXBUFSIZE; i++) txbuf[i] = 0;
+  //for (int i=0; i<SERIAL_TXBUFSIZE; i++) txbuf[i] = 0;
 
   /* USER CODE END 2 */
 
@@ -123,13 +123,29 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  size_t i = 0;
+	  size_t len = 0;
 	  while (!Serial_isEmpty()) {
-		  rxbuf[i++] = (char)Serial_read();
+		  rxbuf[len++] = Serial_read();
 	  }
-	  rxbuf[i] = '\n';
-	  Serial_send(rxbuf, i+1, 1000);
+	  if (len > 0) {
+		  switch (rxbuf[0]) {
+		  case 'c':  // Change car. Command: 'cx' (x=carid+1. 0 = no one, 1 = first one)
+			  Ctrl_toggle(E_CTRL_TOGGLE_OFF);                         // turn off inverter
+			  int carid = rxbuf[1] - '1';                             // get carid (if id==0, carid='0'(46) - '1'(47) = -1)
+			  if (carid < 0 || carid > D_CAR_NUMOFCAR) carid = -1;
+			  Cardata_getPulsemode(carid, &info_pm);                  // update car info
+			  Cardata_getCarparam(carid, &info_param);
+			  Ctrl_setParam(&info_pm, &info_param);                   // set car info to the controller
+			  break;
+		  case 'i':  // Toggle inverter. Command: 'ix' (x=0: OFF, x=1: ON)
+			  if (rxbuf[1] == '1' && info_pm.carid > -1) {
+				  Ctrl_toggle(E_CTRL_TOGGLE_ON);
+			  } else {
+				  Ctrl_toggle(E_CTRL_TOGGLE_OFF);
+			  }
+		  }
 
+	  }
 	  HAL_Delay(1000);
 
     /* USER CODE END WHILE */

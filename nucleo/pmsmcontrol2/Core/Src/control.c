@@ -179,20 +179,25 @@ void Ctrl_currentControl_Closed(float Idref, float Iqref, float Id, float Iq, fl
   * @brief Set VVVF parameters (call only when bike is stopping)
   * @param pPm: Pulse mode command.
   *        pParam: Car parameter.
-  *        toggle: E_CTRL_TOGGLE_OFF: VVVF control algorithm is disabled. Inverter output is set to idle state.
+  * @retval Car id
+  */
+int Ctrl_setParam(PulseMode* pPm, CarParam* pParam) {
+	if (pPm->carid >= -1 && pParam->carid >= -1) {
+		pm = pPm;
+		param = pParam;
+	}
+	return pm->carid;
+}
+
+/**
+  * @brief Turn On/Off VVVF controller.
+  * @param toggle: E_CTRL_TOGGLE_OFF: VVVF control algorithm is disabled. Inverter output is set to idle state.
   *                E_CTRL_TOGGLE_ON:  VVVF control algorithm is enabled.
   * @retval None
   */
-void Ctrl_setParam(PulseMode* pPm, CarParam* pParam, E_CTRL_TOGGLE toggle) {
-	pm = pPm;
-	param = pParam;
-	if (toggle == E_CTRL_TOGGLE_ON && pPm->carid > -1 && pParam->carid > -1) {
-		ctrlFlag = E_CTRL_TOGGLE_ON;
-		Pwm_toggle(E_PWM_TOGGLE_ON);
-	} else {
-		ctrlFlag = E_CTRL_TOGGLE_OFF;
-		Pwm_toggle(E_PWM_TOGGLE_OFF);
-	}
+void Ctrl_toggle(E_CTRL_TOGGLE toggle) {
+	ctrlFlag = toggle;
+	Pwm_toggle((E_PWM_TOGGLE)toggle);
 }
 
 /**
@@ -204,5 +209,6 @@ void Ctrl_setParam(PulseMode* pPm, CarParam* pParam, E_CTRL_TOGGLE toggle) {
  */
 void Ctrl_init(TIM_HandleTypeDef* htim1ptr, PulseMode* pPm, CarParam* pParam) {
 	Pwm_init(htim1ptr);  // initalize PWM and get initial CtrlPrd
-	Ctrl_setParam(pPm, pParam, E_CTRL_TOGGLE_OFF);
+	Ctrl_toggle(E_CTRL_TOGGLE_OFF);
+	Ctrl_setParam(pPm, pParam);
 }

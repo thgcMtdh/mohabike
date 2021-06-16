@@ -21,7 +21,8 @@ typedef enum {E_CTRL_TOGGLE_OFF, E_CTRL_TOGGLE_ON} E_CTRL_TOGGLE;
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Ctrl_init(TIM_HandleTypeDef*, PulseMode*, CarParam*);
-void Ctrl_setParam(PulseMode*, CarParam*, E_CTRL_TOGGLE);
+void Ctrl_toggle(E_CTRL_TOGGLE);
+int Ctrl_setParam(PulseMode*, CarParam*);
 
 /* Private defines -----------------------------------------------------------*/
 
