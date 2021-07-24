@@ -1,27 +1,28 @@
 /* マクロ定義 */
-#define POW2(n) (1<<(n))          // 2のn乗
+#define POW2(n) (1<<(n))            // 2のn乗
 #define MOD(x,n) ((x)&((1<<(n))-1)) // x を 2のn乗 で割った余り
 #define F_CLK 16000000   // Arduinoのクロック周波数[Hz]
 #define F_INTR_BIT 14    // 割り込み周波数は2の何乗Hzか
-#define FS_OFFSET 7      // fsの固定小数点は何ビット目か
-#define FC_OFFSET 4      // fcの固定小数点は何ビット目か
+#define FS_OFFSET 7      // fsの固定小数点は7ビット目(上位9ビットが整数部、下位7ビットが小数部)
+#define FC_OFFSET 4      // fcの固定小数点は5ビット目(上位12ビットが整数部、下位4ビットが小数部)
 
 /* 搬送波のインクルード(別ファイルに記載) */
 #include "waveform.h"
 
 /* グローバル変数 */
-volatile uint32_t isr_cnt = 0;  // 割込みが何回実行されたか
+volatile uint8_t out_U = 0, out_V = 0, out_W = 0;  // 各相出力のバッファ
 
 volatile uint16_t theta = 0;      // U相信号波位相(0-65535で1周)
 volatile uint16_t theta_prev = 0; // 直前のtheta
-volatile int16_t fs = 0;         // 信号波周波数(FS_OFFSETビット目に小数点がある固定小数点表記)
-volatile uint8_t Vs = 0;         // 電圧(0-255)
+volatile int16_t fs = 0;          // 信号波周波数(FS_OFFSETビット目に小数点がある固定小数点表記で、-256～255)
+volatile uint8_t Vs = 0;          // 電圧(0-255)
 
-volatile uint16_t fc = 0;            // [非同期]キャリア周波数(FC_OFFSETビット目に小数点がある固定小数点表記)
-volatile uint16_t theta_c = 0;       // [非同期]キャリア位相
+volatile uint16_t fc = 0;            // [非同期]キャリア周波数(FC_OFFSETビット目に小数点がある固定小数点表記で、0～4095)
+volatile uint16_t theta_c = 0;       // [非同期]キャリア位相(0-65535で1周)
 volatile uint16_t theta_c_prev = 0;  // [非同期]直前のtheta_c
 
-volatile uint16_t startTime, endTime;
+volatile uint32_t isr_cnt = 0;    // 割込みが何回実行されたか
+volatile uint16_t startTime, endTime;  // 処理時間計測用
 
 void setup() {
   Serial.begin(115200);
@@ -31,11 +32,18 @@ void setup() {
   pinMode(18, OUTPUT); // W相
 
   /* タイマーTCB0の割り込み設定 */
-  TCA0_SINGLE_CTRLA = 0;            // TCA0を無効->delayが使えないの:かわりにwaiting()を使ってね
+  TCA0_SINGLE_CTRLA = 0;            // TCA0を無効->delayが使えない:かわりにwaiting()を使ってね
   TCB0_CTRLA = 0b00000001;          // 分周比1,動作を許可
-  TCB0_CTRLB = 0b00000000;          // CNTMODE:周期的割り込み動作
+  TCB0_CTRLB = 0b00000000;          // CNTMODEを周期的割り込み動作
   TCB0_INTCTRL = 1;                 // 割込みを許可
   TCB0_CCMP = F_CLK >> F_INTR_BIT;  // TOP値
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  Serial.println(startTime);
+  Serial.println(endTime);
+  waiting(1000);
 }
 
 /* 割り込み時に実行される関数 */
@@ -44,12 +52,15 @@ ISR(TCB0_INT_vect) {
   TCB0_INTFLAGS = 1;
   isr_cnt++;
 
-  startTime = TCB0_CNT;
+  /* U相:PA0(D2), V相:PA1(D7), W相:PA2(D18) へ出力 */
+  PORTA_OUT = out_U | (out_V<<1) | (out_W<<2);
+
+  startTime = TCB0_CNT;  // 処理開始時点のタイマカウント値を取得
 
   /* 周波数計算 */
-  if (fs < (120<<FS_OFFSET)) {
+  if (fs < (120<<FS_OFFSET)) {  // fs=120Hzまでは、割り込み2^5回あたり1だけfsを増やす
     fs = isr_cnt>>5;
-  } else {
+  } else {                      // fsは最大120Hzとする
     fs = 120<<FS_OFFSET;
   }
 //  fs = 100<<FS_OFFSET;
@@ -64,11 +75,14 @@ ISR(TCB0_INT_vect) {
   /* 信号波位相を進める */
   theta_prev = theta;
   theta += fs >> (FS_OFFSET + F_INTR_BIT - 16);
+  // ↑fsは実の値[Hz]より2^FS_OFFSET倍されているので、2^FS_OFFSETで割る
+  //   dtは割り込み周波数2^F_INTR_BIT[Hz]の逆数なので、2^F_INTR_BITで割る
+  //   位相は0から65535で1周するので、2^16を掛ける
 
   /* パルスモード判定 */
   uint8_t* wave;
   uint8_t wave_bitlen;
-  if (fs > 7372) {
+  if (fs > 7372) {         // 57.6*2^7(この数値は適当)
     wave = wave_W3P;
     wave_bitlen = WAVE_BIT_W3P;
   } else if (fs > 4864) {  // 38.0*2^7
@@ -99,7 +113,6 @@ ISR(TCB0_INT_vect) {
   theta_c += fc >> (FC_OFFSET + F_INTR_BIT - 16);
   
   /* ゲート波形計算 */
-  uint8_t out_U, out_V, out_W;
   if (wave) {  // 同期モード
     out_U = calc_gate_sync(theta      , wave, wave_bitlen);
     out_V = calc_gate_sync(theta-21845, wave, wave_bitlen);
@@ -109,27 +122,16 @@ ISR(TCB0_INT_vect) {
     out_V = calc_gate_async(theta-21845);
     out_W = calc_gate_async(theta-43690);
   }
- 
-  // U相:PA0(D2), V相:PA1(D7), W相:PA2(D18)
-  PORTA_OUT = out_U | (out_V<<1) | (out_W<<2);
 
   endTime = TCB0_CNT;
 }
-
-void loop() {
-  // put your main code here, to run repeatedly:
-  Serial.println(startTime);
-  Serial.println(endTime);
-  waiting(1000);
-}
-
 
 uint8_t calc_gate_sync(uint16_t phase, uint8_t* wave, uint8_t wave_bitlen) {
   /* キャリア振幅を計算 */
   uint8_t shift = 15 - wave_bitlen;
   uint16_t theta_index = (phase & 32767) >> shift;  // pi~2piを0~piに移し、index範囲を合わせる
   uint8_t x0 = wave[theta_index];
-  uint8_t x1 = wave[MOD(theta_index+1,wave_bitlen)];  // x0の次(indexをはみださないようにmodをかけている
+  uint8_t x1 = wave[MOD(theta_index+1,wave_bitlen)];  // x0の次(indexをはみださないようにmodをとっている
   uint16_t a1 = MOD(phase,shift);
   uint16_t a0 = POW2(shift) - a1;
 
@@ -138,7 +140,7 @@ uint8_t calc_gate_sync(uint16_t phase, uint8_t* wave, uint8_t wave_bitlen) {
   /* 比較 */
   if (phase & 32768) {  // 最上位ビットが1、つまり位相がpi~2piのとき
     return (Vs < wave_val);
-  } else {
+  } else {              // 最上位ビットが0、つまり位相が0~piのとき
     return (Vs >= wave_val);
   }
 }
