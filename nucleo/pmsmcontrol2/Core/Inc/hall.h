@@ -1,31 +1,30 @@
 /*
- * pwm.h
+ * hall.h
  *
- *  Created on: 2021/06/06
+ *  Created on: 2021/07/18
  *      Author: denjo
  */
 
-#ifndef INC_PWM_H_
-#define INC_PWM_H_
+#ifndef INC_HALL_H_
+#define INC_HALL_H_
 
 /* Private includes ----------------------------------------------------------*/
-#include "cardata.h"
 
 /* Exported types ------------------------------------------------------------*/
-typedef enum {E_PWM_TOGGLE_OFF, E_PWM_TOGGLE_ON} E_PWM_TOGGLE;
+typedef enum {E_HALL_TOGGLE_OFF, E_HALL_TOGGLE_ON} E_HALL_TOGGLE;
 
 /* Exported constants --------------------------------------------------------*/
 
 /* Exported macro ------------------------------------------------------------*/
 
 /* Exported functions prototypes ---------------------------------------------*/
-void Pwm_init(TIM_HandleTypeDef*);
-void Pwm_toggle(E_PWM_TOGGLE);
-void Pwm_IT_main(float, float, float, float, PulseMode*);
-void Pwm_asyncpwm(float, float, float);
+void Hall_init(TIM_HandleTypeDef* tim2ptr);
+void Hall_toggle(E_HALL_TOGGLE toggle);
+uint32_t Hall_getTheta(void);
+float Hall_getFs(void);
+
+void Hall_IT_calcFs(void);
 
 /* Private defines -----------------------------------------------------------*/
-#define PWM_DEFAULT_PSC 9
-#define PWM_DEFAULT_FC 2000.0
 
-#endif /* INC_PWM_H_ */
+#endif /* INC_HALL_H_ */

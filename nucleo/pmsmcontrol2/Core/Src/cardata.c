@@ -86,10 +86,10 @@ const PmElement metro16000[] = {
 
 /* ========= DEFINITION OF CAR PARAMETERS ==========*/
 const CarData cardata[D_CAR_NUMOFCAR] = {
-	{tobu100, sizeof(tobu100)/sizeof(PmElement),			3.0, 2.0, -3.7, -5.3, 5.31, 2, 0.43},
-	{E231tsuiraku, sizeof(E231tsuiraku)/sizeof(PmElement),	0.0, 2.3, -4.5, -4.5, 6.6, 2, 0.43},
-	{keikyu1000, sizeof(keikyu1000)/sizeof(PmElement),		5.0, 2.0, -4.0, -4.5, 5.93, 2, 0.43},
-	{metro16000, sizeof(metro16000)/sizeof(PmElement),		0.0, 3.3, -4.0, -4.5, 7.2, 2, 0.43}
+	{tobu100,		sizeof(tobu100)/sizeof(PmElement),			3.0, 2.0, -3.7, -5.3, 5.31, 2, 0.43},
+	{E231tsuiraku,	sizeof(E231tsuiraku)/sizeof(PmElement),		0.0, 2.3, -4.5, -4.5, 6.6, 2, 0.43},
+	{keikyu1000,	sizeof(keikyu1000)/sizeof(PmElement),		5.0, 2.0, -4.0, -4.5, 5.93, 2, 0.43},
+	{metro16000,	sizeof(metro16000)/sizeof(PmElement),		0.0, 3.3, -4.0, -4.5, 7.2, 2, 0.43}
 };
 
 /* Private function prototypes -----------------------------------------------*/

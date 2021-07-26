@@ -18,6 +18,7 @@
 #include "control.h"
 #include "constants.h"
 #include "pwm.h"
+#include "hall.h"
 
 #define ARM_MATH_CM4
 #include "arm_math.h"
@@ -53,13 +54,16 @@ static uint32_t theta = 0;
 static float accref = 0.0;  // Electric angular acceleration command [rad/s/s] (set when speed control mode)
 static float Tref = 0.0;    // Wheel-end Torque command [Nm] (set when Torque control mode / calculated when speed control (CL) mode)
 static float wref = 0.0;    // Electric angular speed command [rad/s] (calculated when speed control mode)
+static float Vdref = 0.0;   // d-axis voltage command [V]
+static float Vqref = 0.0;   // q-axis voltage command [V]
 
+static float fs = 0.0;  // actual electric frequency [Hz]
+static float Iu = 0.0, Iv = 0.0, Iw = 0.0;
+static float Id = 0.0;  // actual d-axis current [A]
+static float Iq = 0.0;  // actual q-axis current [A]
 static float Vdc = 12.0;  // DC bus voltage [V]
-static float Vdref = 0.0;  // d-axis voltage [V]
-static float Vqref = 0.0; // q-axis voltage [V]
 
 /* Private function prototypes -----------------------------------------------*/
-void Ctrl_dqToUVW(float, float);
 void Ctrl_currentControl_Closed(float, float, float, float, float*, float*);
 void Ctrl_currentControl_Open(float, float, float*, float*);
 void Ctrl_speedControl_Closed(float, float, float*);
@@ -68,15 +72,18 @@ void Ctrl_calcCurrent(float, float*, float*);
 
 /* Private user code ---------------------------------------------------------*/
 
-void Ctrl_main (void) {
+void Ctrl_IT_main (void) {
 	if (ctrlFlag) {
-		// controller
+		// --- get current cycle CtrlPrd ---
+		CtrlPrd = (float)TIM1->ARR*TIM1->PSC/FCLK;
+
+		// --- generate torque or speed command ---
+
+		// --- controller functions ---
 		switch (kind) {
 		case E_CTRL_KIND_SPD:  // speed control mode
 			wref += accref * CtrlPrd;  // calculate speed ref from acclereration command
-			if (wref < 0.0) {
-				wref = 0.0;
-			}
+			if (wref < 0.0) wref = 0.0;
 
 			switch (speed_loop) {
 			case E_CTRL_SPEED_LOOP_OPEN:
@@ -94,18 +101,21 @@ void Ctrl_main (void) {
 			return;
 		}
 
-		// rotor position calculation
+		// --- estimate rotor position ---
 		switch (posest) {
 		case E_CTRL_POSEST_NONE:
 			theta += (uint32_t)(wref / TWOPI * CtrlPrd * UINT32TMAX);
+			fs = wref/2.0/TWOPI;
 			break;
 		case E_CTRL_POSEST_HALL:
+			theta = Hall_getTheta();
+			fs = Hall_getFs();
 			break;
 		case E_CTRL_POSEST_SENSORLESS:
 			break;
 		}
 
-		// dq->uvw conversion
+		// --- dq->uvw conversion ---
 		float Valpha, Vbeta;
 		float Vu, Vv, Vw;
 		float sinVal = arm_sin_f32((float)theta/UINT32TMAX * 2*PI);
@@ -116,7 +126,11 @@ void Ctrl_main (void) {
 		Vv *= SQRT_2_3;
 		Vw = - Vu - Vv;
 
-		Pwm_asyncpwm(fc, frand, Vu/Vdc, Vv/Vdc, Vw/Vdc);
+		// --- get DC bus voltage ---
+		Vdc = 12.0;
+
+		// --- PWM ---
+		Pwm_IT_main(Vu/Vdc, Vv/Vdc, Vw/Vdc, fs, pm);
 
 	} else {
 		Pwm_toggle(E_PWM_TOGGLE_OFF);

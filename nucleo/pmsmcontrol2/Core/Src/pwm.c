@@ -13,9 +13,9 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include "stm32f3xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
-#include "stm32f3xx_hal.h"
 #include "pwm.h"
 #include "constants.h"
 
@@ -26,6 +26,9 @@
 /* Private macro -------------------------------------------------------------*/
 
 /* Private variables ---------------------------------------------------------*/
+static volatile float fc = PWM_DEFAULT_FC; // carrer frequency [Hz]
+static volatile float frand = 0.0;         // random modulation frequency [Hz]
+static volatile size_t pmIdx = 0;          // current pulse mode index
 
 /* Private function prototypes -----------------------------------------------*/
 static float Pwm_Rand(void);
@@ -73,11 +76,55 @@ void Pwm_toggle(E_PWM_TOGGLE toggle) {
 }
 
 /**
+  * @brief PWM wave generator function called by controller
+  * @param 3-phase voltages Vu,Vv,Vw [-1 to 1], signal freq[Hz], pointer to the PulseMode
+  * @retval None
+  */
+void Pwm_IT_main(float Vu, float Vv, float Vw, float fs, PulseMode* pulseMode) {
+	// --- select pulsemode ---
+
+	// get target pulsemode
+	size_t pmIdx_ref = pulseMode->N;
+	while (pmIdx_ref > 0) {
+		if (fs > pulseMode->fs[pmIdx_ref]) break;
+		pmIdx_ref--;
+	}
+
+	// switch pulsemode at the appropriate timing
+	if (pmIdx != pmIdx_ref){
+		int pm_now = pulseMode->pm[pmIdx];
+		int pm_ref = pulseMode->pm[pmIdx_ref];
+
+		// async -> sync
+		if (pm_now == 0 && pm_ref > 0) {
+			pmIdx = pmIdx_ref;
+
+		// sync -> sync
+		} else if (pm_now > 0 && pm_ref >0) {
+			pmIdx = pmIdx_ref;
+
+		// sync -> async
+		} else if (pm_now > 0 && pm_ref == 0) {
+			pmIdx = pmIdx_ref;
+
+		} else {
+			pmIdx = pmIdx_ref;
+		}
+	}
+
+	// calculate fc
+
+
+	// --- asynchronus PWM---
+	Pwm_asyncpwm(Vu, Vv, Vw);
+}
+
+/**
   * @brief Calculate asynchronus pwm carrier and control TIM1
   * @param fc(carrer freq), frand(random modulation freq), Vu,Vv,Vw(3phase voltages [-1 to 1])
-  * @retval Control period [sec] of the next interrupt
+  * @retval None
   */
-float Pwm_asyncpwm(float fc, float frand, float Vu, float Vv, float Vw) {
+void Pwm_asyncpwm(float Vu, float Vv, float Vw) {
 
 	// calculate freq deviation of random modulation
 	float fc_next = fc + frand * Pwm_Rand();
@@ -98,8 +145,6 @@ float Pwm_asyncpwm(float fc, float frand, float Vu, float Vv, float Vw) {
 	TIM1->CCR1 = (uint32_t)(((float)ARR_next+1.0)/2.0 * (1.0 + Vu));
 	TIM1->CCR2 = (uint32_t)(((float)ARR_next+1.0)/2.0 * (1.0 + Vv));
 	TIM1->CCR3 = (uint32_t)(((float)ARR_next+1.0)/2.0 * (1.0 + Vw));
-
-	return (float)ARR_next*PSC_next/FCLK;
 }
 
 /**
